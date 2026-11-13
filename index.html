@@ -53,7 +53,11 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 .ai { white-space: pre-wrap; font-size: 15px; background: var(--kart); border: 1px solid var(--xett); border-radius: 11px; padding: 10px 12px; margin: 10px 0; }
 #toast { position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 70px); background: #1f2925; color: #fff; padding: 12px 14px; border-radius: 12px; z-index: 30; text-align: center; transition: opacity .25s; } #toast[hidden] { display: none; }
 .nis { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 9px; background: var(--xett); color: var(--mt); margin-left: 6px; white-space: nowrap; } .nis.med { background: var(--y); color: #fff; } .nis.mex { background: var(--y2); color: #fff; }
-.sorgu { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; } .sorgu > div { background: var(--kart); border-radius: 16px; padding: 18px; width: 100%; max-width: 420px; white-space: pre-wrap; }
+.sorgu { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; } .sorgu > div, .sorgu > form { background: var(--kart); border-radius: 16px; padding: 18px; width: 100%; max-width: 420px; white-space: pre-wrap; }
+.sr.yeni { background: rgba(42, 148, 125, .16); border-radius: 8px; }
+.mq { width: 40px; height: 40px; border-radius: 20px; border: 1px solid var(--xett); background: var(--kart); color: var(--mt); font-size: 20px; line-height: 1; flex: none; }
+.mqs { border: 0; background: none; color: var(--mt); font: inherit; font-weight: 650; font-variant-numeric: tabular-nums; min-width: 62px; text-align: center; flex: none; padding: 8px 2px; }
+.qr { color: var(--qr); }
 </style>
 </head>
 <body>
@@ -67,6 +71,7 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
       <label class="b">Şəkildən oxu<input id="fSekil" type="file" accept="image/*" capture="environment" hidden></label>
     </div>
     <form id="fKod" class="row"><input id="iKod" placeholder="Barkod və ya stok kodu" autocomplete="off" enterkeyhint="search" style="flex:3"><button class="b" style="flex:1">Tap</button></form>
+    <div id="kassa"></div>
     <div id="skanAlt"></div>
   </section>
   <section id="v-axtar" class="v">
@@ -88,7 +93,7 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.1 · 12.11.2026';
+const SURUM = '0.2 · 13.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
@@ -134,7 +139,7 @@ const KV = (() => {
 })();
 
 // ---------------------------------------------------------------- vəziyyət
-const S = {db: null, ix: new Map(), bark: {}, barkYeni: [], sened: [], det: null, detAd: '',
+const S = {db: null, ix: new Map(), bark: {}, barkE: {}, barkYeni: [], sened: [], kassa: null, sonSetir: '', det: null, detAd: '',
   ayar: {cihaz: '', ad: '', anbar: '', gkey: '', gmodel: 'gemini-2.5-flash', sayac: 0}};
 const saxla = k => KV.set(k, S[k]);
 
@@ -160,8 +165,8 @@ function sorus(metn, beli, xeyr) {
 
 // ---------------------------------------------------------------- məlumat
 async function yukle() {
-  const [db, bark, barkYeni, sened, ayar] = await Promise.all(['db', 'bark', 'barkYeni', 'sened', 'ayar'].map(k => KV.get(k)));
-  if (bark) S.bark = bark; if (barkYeni) S.barkYeni = barkYeni; if (sened) S.sened = sened; if (ayar) Object.assign(S.ayar, ayar);
+  const [db, bark, barkE, barkYeni, sened, ayar, kassa] = await Promise.all(['db', 'bark', 'barkE', 'barkYeni', 'sened', 'ayar', 'kassa'].map(k => KV.get(k)));
+  if (bark) S.bark = bark; if (barkE) S.barkE = barkE; if (barkYeni) S.barkYeni = barkYeni; if (sened) S.sened = sened; if (ayar) Object.assign(S.ayar, ayar); if (kassa) S.kassa = kassa;
   if (!S.ayar.cihaz) { S.ayar.cihaz = 'T' + Array.from({length: 4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join(''); await saxla('ayar'); }
   if (db) dbQur(db);
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
@@ -176,12 +181,12 @@ function dbQur(db) {
   for (const m of db.mallar) { m._n = norm(m.a + ' ' + (m.s || []).join(' ')); S.ix.set(m.k.toLowerCase(), m); }
   const doldur = (id, l) => $(id).replaceChildren(...(l || []).map(x => el('option', {value: x})));
   doldur('#dlTey', db.teyinatlar); doldur('#dlKont', db.kontragentler);
-  for (const b in S.bark) if (db.barkodlar && db.barkodlar[b]) delete S.bark[b];        // Excel artıq bilir
+  for (const b in S.bark) if (db.barkodlar && db.barkodlar[b]) { delete S.bark[b]; delete S.barkE[b]; }        // Excel artıq bilir
   durumYaz();
 }
 async function dbYaz(metn) {
   const d = dbYoxla(JSON.parse(metn));
-  await KV.set('db', d); dbQur(d); saxla('bark');
+  await KV.set('db', d); dbQur(d); saxla('bark'); saxla('barkE');
   toast(`Yükləndi: ${d.mallar.length} mal · ${vaxtQisa(d.vaxt)}`, 3.5);
   ciz();
 }
@@ -215,10 +220,14 @@ function axtar(sorgu, hedd) {
   out.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2].a.localeCompare(b[2].a, 'az'));
   return out.slice(0, hedd || 60).map(x => x[2]);
 }
+function barkodVariant(b) { const v = [b]; if (/^\d{12}$/.test(b)) v.push('0' + b); if (/^0\d{12}$/.test(b)) v.push(b.slice(1)); return v; }
 function barkodKod(b) {
-  const v = [b]; if (/^\d{12}$/.test(b)) v.push('0' + b); if (/^0\d{12}$/.test(b)) v.push(b.slice(1));
-  for (const x of v) { const k = (S.db && S.db.barkodlar && S.db.barkodlar[x]) || S.bark[x]; if (k) return k; }
+  for (const x of barkodVariant(b)) { const k = (S.db && S.db.barkodlar && S.db.barkodlar[x]) || S.bark[x]; if (k) return k; }
   return '';
+}
+function barkodEmsal(b) {                                                 // bir skan neçə vahiddir (qutu barkodu); susmaya görə 1
+  for (const x of barkodVariant(b)) { const e = (S.db && S.db.emsal && S.db.emsal[x]) || S.barkE[x]; if (e > 0) return e; }
+  return 1;
 }
 function barkodlari(kod) {
   const s = new Set();
@@ -297,34 +306,36 @@ function kamBagla() {
   $('#kam').classList.remove('aciq'); $('#bKam').textContent = 'Kameranı aç'; $('#bIsiq').hidden = true; $('#kamMesaj').textContent = 'Kamera bağlıdır';
 }
 let ses;
-function bip() {
+function sesVer(tezlik, san, titre) {
   try {
     ses = ses || new (window.AudioContext || window.webkitAudioContext)();
-    const o = ses.createOscillator(), g = ses.createGain(); o.frequency.value = 880; g.gain.value = 0.08;
-    o.connect(g); g.connect(ses.destination); o.start(); o.stop(ses.currentTime + 0.09);
+    const o = ses.createOscillator(), g = ses.createGain(); o.frequency.value = tezlik; g.gain.value = 0.08;
+    o.connect(g); g.connect(ses.destination); o.start(); o.stop(ses.currentTime + san);
   } catch (e) {}
-  if (navigator.vibrate) navigator.vibrate(60);
+  if (navigator.vibrate) navigator.vibrate(titre);
 }
+const bip = () => sesVer(880, 0.09, 60);                                  // tanındı
+const pisBip = () => sesVer(220, 0.28, [90, 60, 90]);                     // naməlum barkod
 function kodGeldi(xam) {
   const b = String(xam).trim(); if (!b) return;
-  const t = Date.now(); if (b === K.son && t - K.sonVaxt < 2500) return;
-  K.son = b; K.sonVaxt = t; bip(); kodAc(b);
+  const t = Date.now(); if (b === K.son && t - K.sonVaxt < (S.kassa ? 1800 : 2500)) return;
+  K.son = b; K.sonVaxt = t; kodAc(b);
 }
 async function sekildenOxu(fayl) {
   try {
     const det = await detektor(), bmp = await createImageBitmap(fayl), r = await det.detect(bmp);
     if (bmp.close) bmp.close();
-    if (r && r.length && r[0].rawValue) { bip(); kodAc(String(r[0].rawValue).trim()); } else toast('Şəkildə barkod tapılmadı');
+    if (r && r.length && r[0].rawValue) kodAc(String(r[0].rawValue).trim()); else toast('Şəkildə barkod tapılmadı');
   } catch (e) { toast('Şəkil oxunmadı: ' + (e.message || e), 4); }
 }
 function kodAc(b) {
   if (!S.db) { toast('Əvvəlcə qalıq faylını yükləyin (Ayarlar)', 4); return; }
-  const m = S.ix.get(b.toLowerCase());
-  if (m) return malKarti(m, '');
+  const m = S.ix.get(b.toLowerCase());                                    // stok kodu əllə yazılıb
+  if (m) { bip(); return S.kassa ? kassaElave(m, 1, '') : malKarti(m, ''); }
   const k = barkodKod(b), mb = k && S.ix.get(k.toLowerCase());
-  if (mb) return malKarti(mb, b);
+  if (mb) { bip(); return S.kassa ? kassaElave(mb, barkodEmsal(b), b) : malKarti(mb, b); }
   if (/[^\d\s-]/.test(b) && b.length < 40) { gorunus('axtar'); $('#iAxtar').value = b; axtarCiz(); return; }   // söz yazılıb - axtarış
-  namelum(b);
+  pisBip(); namelum(b);
 }
 
 // ---------------------------------------------------------------- mal kartı
@@ -349,28 +360,64 @@ function malKarti(m, barkod) {
     el('div', {class: 'qeyd'}, 'Barkod: ' + (bl.length ? bl.join(', ') : 'bağlanmayıb') + '. ',
       el('button', {class: 'lnk', type: 'button', text: 'Barkod bağla', onclick: () => barkodForm(m)}))));
 }
+const EMSAL_AD = 'Bir skan neçə vahid sayılsın? (qutudursa — içindəki say)';
 function barkodForm(m) {
-  const i = el('input', {placeholder: 'Barkod', inputmode: 'numeric', autocomplete: 'off'});
+  const i = el('input', {placeholder: 'Barkod', inputmode: 'numeric', autocomplete: 'off'}), em = el('input', {inputmode: 'decimal', value: '1', autocomplete: 'off'});
   pdAc(el('div', null, el('div', {class: 'kart'}, el('div', {class: 'ad', text: m.a}), el('div', {class: 'alt', text: m.k}),
-    el('div', {class: 'qeyd', text: 'Barkodu yazın. Və ya bu pəncərəni bağlayıb barkodu skan edin: «Naməlum barkod» çıxanda bu malı seçin.'}), i),
+    el('div', {class: 'qeyd', text: 'Barkodu yazın. Və ya bu pəncərəni bağlayıb barkodu skan edin: «Naməlum barkod» çıxanda bu malı seçin.'}), i,
+    el('label', {class: 'sahe'}, EMSAL_AD, em)),
     el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Geri', onclick: () => malKarti(m, '')}),
-      el('button', {class: 'b esas', type: 'button', text: 'Bağla', onclick: () => { const b = i.value.trim(); if (b.length < 4) return toast('Barkodu yazın'); bagla(b, m, true); }}))));
+      el('button', {class: 'b esas', type: 'button', text: 'Bağla', onclick: () => { const b = i.value.trim(); if (b.length < 4) return toast('Barkodu yazın'); bagla(b, m, true, ededOxu(em.value)); }}))));
   i.focus();
 }
-async function bagla(b, m, sorgusuz) {
-  const kohne = barkodKod(b);
+async function bagla(b, m, sorgusuz, emsal) {
+  const e = emsal > 0 ? Math.round(emsal * 1000) / 1000 : 1, kohne = barkodKod(b);
+  const emMetn = e !== 1 ? `\n\n1 skan = ${say(e)} ${m.v || 'vahid'}` : '';
   if (kohne && kohne !== m.k) { const km = S.ix.get(kohne.toLowerCase()); if (!await sorus(`Bu barkod artıq başqa mala bağlıdır:\n«${km ? km.a : kohne}»\n\nYeni mala keçirilsin?`, 'Keçir', 'Ləğv')) return; }
-  else if (!sorgusuz && !await sorus(`Barkod ${b}\n\n«${m.a}»\nmalına bağlansın?`, 'Bağla', 'Ləğv')) return;
-  S.bark[b] = m.k; S.barkYeni = S.barkYeni.filter(x => x.b !== b); S.barkYeni.push({b, k: m.k, a: m.a, t: indi()});
-  saxla('bark'); saxla('barkYeni'); toast('Barkod bağlandı'); nisan(); malKarti(m, b);
+  else if (!sorgusuz && !await sorus(`Barkod ${b}\n\n«${m.a}»\nmalına bağlansın?${emMetn}`, 'Bağla', 'Ləğv')) return;
+  S.bark[b] = m.k; if (e !== 1) S.barkE[b] = e; else delete S.barkE[b];
+  S.barkYeni = S.barkYeni.filter(x => x.b !== b); S.barkYeni.push({b, k: m.k, a: m.a, e, t: indi()});
+  saxla('bark'); saxla('barkE'); saxla('barkYeni'); toast('Barkod bağlandı'); nisan();
+  if (S.kassa) { pdBagla(); kassaElave(m, e, b); } else malKarti(m, b);
+}
+function oxsar(metn, hedd) {                                              // internetdən gələn ada görə siyahıdan oxşar mallar (uyğun gələn söz sayına görə)
+  const sz = [...new Set(norm(metn).split(/[^a-z0-9]+/).filter(w => w.length >= 3))];
+  if (!sz.length || !S.db) return [];
+  const out = [];
+  for (const m of S.db.mallar) { let n = 0; for (const w of sz) if (m._n.includes(w)) n++; if (n >= Math.min(2, sz.length)) out.push([n, cemQ(m) > 0 ? 1 : 0, m]); }
+  out.sort((a, b) => b[0] - a[0] || b[1] - a[1] || a[2].a.localeCompare(b[2].a, 'az'));
+  return out.slice(0, hedd || 8).map(x => x[2]);
 }
 function namelum(b) {
-  const i = el('input', {type: 'search', placeholder: 'Malın adı və ya kodu', autocomplete: 'off'}), siy = el('div', {class: 'siy'}), info = el('div');
-  i.addEventListener('input', () => siy.replaceChildren(...axtar(i.value, 25).map(m => malSetri(m, () => bagla(b, m)))));
+  const i = el('input', {type: 'search', placeholder: 'Malın adı və ya kodu', autocomplete: 'off'}), siy = el('div', {class: 'siy'}), info = el('div'), tk = el('div');
+  const em = el('input', {inputmode: 'decimal', value: '1', autocomplete: 'off'});
+  const doldur = l => siy.replaceChildren(...l.map(m => malSetri(m, () => bagla(b, m, false, ededOxu(em.value)))));
+  i.addEventListener('input', () => doldur(axtar(i.value, 25)));
+  const teklif = ad => {                                                  // internetdə tapılan ad → siyahıdan oxşarlar
+    const l = oxsar(ad, 8);
+    tk.replaceChildren(el('div', {class: 'qeyd', text: l.length ? 'Siyahınızda oxşar mallar — düzgününü seçin:' : 'Siyahınızda bu ada oxşar mal tapılmadı — aşağıdan axtarın.'}));
+    if (l.length && !i.value.trim()) doldur(l);
+  };
+  const aiTap = async () => {
+    if (!S.ayar.gkey) { tk.replaceChildren(el('div', {class: 'qeyd', text: 'AI ilə tapmaq üçün Gemini açarı lazımdır (Ayarlar).'})); return; }
+    if (navigator.onLine === false) { tk.replaceChildren(el('div', {class: 'qeyd', text: 'İnternet yoxdur.'})); return; }
+    tk.replaceChildren(el('div', {class: 'qeyd', text: 'AI internetdə axtarır…'}));
+    try {
+      S.aiAxtarissiz = false;
+      const t = await geminiSor(`Barkod (EAN/UPC): ${b}\nBu barkodun hansı məhsula aid olduğunu internetdə axtar. Yalnız mənbədə tapdığın halda cavab ver, uydurma; tapmasan yalnız TAPILMADI yaz.\n` +
+        'Cavabı düz iki sətirdə ver:\nAD: <məhsulun adı, markası, ölçüsü>\nSOZLER: <bu malı anbar siyahısında tapmaq üçün Azərbaycan dilində 3-6 açar söz, boşluqla>', false, true);
+      const ad = ((t.match(/AD:\s*(.+)/i) || [])[1] || '').trim(), soz = ((t.match(/SOZLER:\s*(.+)/i) || [])[1] || '').trim();
+      if (!ad || /TAPILMADI/i.test(t)) { tk.replaceChildren(el('div', {class: 'qeyd', text: 'AI bu barkodu tapa bilmədi — adına görə axtarın.'})); return; }
+      info.replaceChildren(el('div', {class: 'ai', text: ad}), el('div', {class: 'qeyd', text: 'AI cavabıdır' + (S.aiAxtarissiz ? ' (internet axtarışı alınmadı — yaddaşdan)' : '') + ', səhv ola bilər — malı özünüz yoxlayın.'}));
+      teklif(ad + ' ' + soz);
+    } catch (e) { tk.replaceChildren(el('div', {class: 'xeta', text: 'AI cavab vermədi: ' + (e.message || e)})); }
+  };
   pdAc(el('div', null, el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Naməlum barkod'}), el('div', {class: 'alt', text: b}),
-    el('div', {class: 'qeyd', text: 'Bu barkod hələ heç bir mala bağlı deyil. Malı tapıb seçin — bir dəfə bağlanır, sonra özü tanınacaq.'}), info),
-    i, siy, el('div', {class: 'row'}, el('a', {class: 'b', href: 'https://www.google.com/search?q=' + encodeURIComponent(b), target: '_blank', rel: 'noopener', text: 'Google-da axtar'}))));
-  offGoster(b, info, true);
+      el('div', {class: 'qeyd', text: 'Bu barkod hələ heç bir mala bağlı deyil. Malı seçin — bir dəfə bağlanır, sonra özü tanınacaq.'}), info, tk,
+      el('label', {class: 'sahe'}, EMSAL_AD, em)),
+    i, siy, el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'AI ilə tap', onclick: aiTap}),
+      el('a', {class: 'b', href: 'https://www.google.com/search?q=' + encodeURIComponent(b), target: '_blank', rel: 'noopener', text: 'Google'}))));
+  offGoster(b, info, true).then(r => { if (r && r.ad) teklif(r.ad + ' ' + r.marka); });
 }
 
 // ---------------------------------------------------------------- internet: Open Food Facts / Open Products Facts, Gemini
@@ -413,16 +460,18 @@ function enYaxsiModel(l) {
   const f = l.filter(n => /flash/.test(n) && !/lite/.test(n));
   return (f.length ? f : l).slice().sort((a, b) => b.localeCompare(a, 'en', {numeric: true}))[0] || '';
 }
-async function geminiSor(metn, tekrar) {
+async function geminiSor(metn, tekrar, axtaris) {                          // axtaris: Google axtarışı aləti ilə (barkodu internetdə tapmaq üçün)
   const acar = S.ayar.gkey, model = S.ayar.gmodel || 'gemini-2.5-flash';
+  const govde = {contents: [{parts: [{text: metn}]}], generationConfig: {temperature: 0.3}};
+  if (axtaris) govde.tools = [{google_search: {}}];
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': acar},
-    body: JSON.stringify({contents: [{parts: [{text: metn}]}], generationConfig: {temperature: 0.3}})});
+    method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': acar}, body: JSON.stringify(govde)});
   const j = await r.json().catch(() => ({}));
   if (r.status === 404 && !tekrar) {                                  // model adı köhnəlib - uyğununu tap
     const y = enYaxsiModel(await geminiModeller(acar));
-    if (y && y !== model) { S.ayar.gmodel = y; saxla('ayar'); return geminiSor(metn, true); }
+    if (y && y !== model) { S.ayar.gmodel = y; saxla('ayar'); return geminiSor(metn, true, axtaris); }
   }
+  if (!r.ok && axtaris && [400, 403, 429].includes(r.status)) { S.aiAxtarissiz = true; return geminiSor(metn, tekrar, false); }   // axtarış aləti bu açarda yoxdur - onsuz
   if (!r.ok) throw new Error(j.error && j.error.message || ('xəta ' + r.status));
   const c = j.candidates && j.candidates[0], t = c && c.content && (c.content.parts || []).map(p => p.text || '').join('').trim();
   if (!t) throw new Error('Cavab boş gəldi.');
@@ -544,6 +593,98 @@ function senedDetal(d) {
       d.status === 'GON' ? el('button', {class: 'b', type: 'button', text: 'Yenidən göndərməyə hazırla', onclick: async () => { d.status = 'HAZ'; await saxla('sened'); pdBagla(); jurnalCiz(); }}) : null)));
 }
 
+// ---------------------------------------------------------------- kassa rejimi: ardıcıl skan → bir sənəd (POS kimi)
+function miqdarSorus(metn, deyer) {
+  return new Promise(res => {
+    const i = el('input', {inputmode: 'decimal', value: String(deyer).replace('.', ','), autocomplete: 'off'});
+    const bitir = v => { o.remove(); res(v); };
+    const o = el('div', {class: 'sorgu'}, el('form', {onsubmit: e => { e.preventDefault(); const x = ededOxu(i.value); bitir(isFinite(x) ? x : null); }}, metn, i,
+      el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Ləğv', onclick: () => bitir(null)}), el('button', {class: 'b esas', text: 'Yaz'}))));
+    document.body.append(o); i.focus(); i.select();
+  });
+}
+const kassaSened = () => S.kassa ? S.sened.find(x => x.id === S.kassa.id && x.status === 'QAR') : null;
+function kassaQur() {
+  if (!S.db) { toast('Əvvəlcə qalıq faylını yükləyin (Ayarlar)', 4); return; }
+  const sus = S.ayar.anbar && S.db.anbarlar.includes(S.ayar.anbar) ? S.ayar.anbar : S.db.anbarlar[0];
+  const nov = el('select', null, el('option', {value: 'MEXARIC', text: 'Məxaric'}), el('option', {value: 'MEDAXIL', text: 'Mədaxil'}));
+  const anb = el('select', null, S.db.anbarlar.map(a => el('option', {value: a, text: a, selected: a === sus})));
+  const tey = el('input', {placeholder: 'Hara / nə üçün', list: 'dlTey', autocomplete: 'off'});
+  const kont = el('input', {placeholder: 'Kimdən gəlib (istəyə görə)', list: 'dlKont', autocomplete: 'off'}), sno = el('input', {placeholder: 'Qaimə № (istəyə görə)', autocomplete: 'off'});
+  const lt = el('label', {class: 'sahe'}, 'Təyinat (bütün sətirlər üçün)', tey), lk = el('label', {class: 'sahe'}, 'Kontragent', kont), ls = el('label', {class: 'sahe'}, 'Sənəd №', sno), xeta = el('div', {class: 'xeta'});
+  const yenile = () => { const c = nov.value === 'MEXARIC'; lt.hidden = !c; lk.hidden = c; ls.hidden = c; };
+  nov.addEventListener('change', yenile); yenile();
+  const basla = async () => {
+    const c = nov.value === 'MEXARIC';
+    if (c && !tey.value.trim()) { xeta.textContent = 'Təyinatı yazın: hara və ya nə üçün çıxır.'; tey.focus(); return; }
+    const d = qaralama(nov.value, anb.value, true);
+    if (!c) { if (kont.value.trim()) d.kont = kont.value.trim(); if (sno.value.trim()) d.sened = sno.value.trim(); }
+    S.kassa = {id: d.id, nov: nov.value, anbar: anb.value, tey: c ? tey.value.trim() : ''};
+    await saxla('sened'); await saxla('kassa'); pdBagla(); gorunus('skan'); ciz();
+    if (!K.aktiv) kamAc();
+  };
+  pdAc(el('form', {onsubmit: e => { e.preventDefault(); basla(); }},
+    el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Kassa rejimi'}),
+      el('div', {class: 'qeyd', text: 'Növü və anbarı bir dəfə seçin. Sonra hər skan siyahıya əlavə olunur; eyni malı təkrar skan edəndə miqdar artır.'}),
+      el('label', {class: 'sahe'}, 'Növ', nov), el('label', {class: 'sahe'}, 'Anbar', anb), lt, lk, ls, xeta),
+    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Ləğv', onclick: pdBagla}), el('button', {class: 'b esas', text: 'Başla'}))));
+}
+async function kassaElave(m, e, barkod) {
+  const d = kassaSened(); if (!d) return;
+  const t = S.kassa.tey || '', mq = e > 0 ? e : 1;
+  let s = d.setir.find(x => x.k === m.k && x.t === t);
+  if (s) s.m = Math.round((s.m + mq) * 1000) / 1000;
+  else { d.n = (d.n || 0) + 1; s = {k: m.k, a: m.a, v: m.v || '', m: mq, t, b: barkod || '', uid: d.id + '-' + d.n}; d.setir.push(s); }
+  if (barkod && !s.b) s.b = barkod;
+  S.sonSetir = s.uid; await saxla('sened'); nisan(); kassaCiz();
+  toast(`${m.a}: ${say(s.m)} ${m.v || ''}`, 1.3);
+}
+function kassaSetri(d, s) {
+  const m = S.ix.get(s.k.toLowerCase()), i = S.db.anbarlar.indexOf(d.anbar);
+  const qalir = m ? ((m.q || {})[i] || 0) + (telFerq(s.k)[d.anbar] || 0) : 0, cox = d.nov === 'MEXARIC' && qalir < -1e-9;
+  return el('div', {class: 'sr' + (s.uid === S.sonSetir ? ' yeni' : '')},
+    el('span', null, el('div', {text: s.a}), el('div', {class: 'alt' + (cox ? ' qr' : ''), text: s.k + (m ? ' · ' + (cox ? 'qalıqdan çox: ' : 'qalır: ') + say(qalir) : '')})),
+    el('button', {class: 'mq', type: 'button', text: '−', onclick: () => kassaDeyis(d, s, -1)}),
+    el('button', {class: 'mqs', type: 'button', text: say(s.m) + (s.v ? ' ' + s.v : ''), onclick: () => kassaMiqdar(d, s)}),
+    el('button', {class: 'mq', type: 'button', text: '+', onclick: () => kassaDeyis(d, s, 1)}));
+}
+async function kassaDeyis(d, s, f) {
+  const y = Math.round((s.m + f) * 1000) / 1000;
+  if (y <= 0) { if (!await sorus(`«${s.a}» siyahıdan çıxarılsın?`, 'Çıxar', 'Ləğv')) return; d.setir.splice(d.setir.indexOf(s), 1); }
+  else s.m = y;
+  S.sonSetir = s.uid; await saxla('sened'); nisan(); kassaCiz();
+}
+async function kassaMiqdar(d, s) {
+  const x = await miqdarSorus(`${s.a}\nMiqdar${s.v ? ' (' + s.v + ')' : ''}:`, s.m);
+  if (x == null) return;
+  if (x <= 0) d.setir.splice(d.setir.indexOf(s), 1); else s.m = Math.round(x * 1000) / 1000;
+  S.sonSetir = s.uid; await saxla('sened'); nisan(); kassaCiz();
+}
+async function kassaBitir() {
+  const d = kassaSened(); if (!d || !d.setir.length) return;
+  if (!await sorus(`${NOV_AD[d.nov]} sənədi bitirilsin?\n${d.setir.length} sətir · ${d.anbar}`, 'Bitir', 'Hələ yox')) return;
+  d.status = 'HAZ'; S.kassa = null; await saxla('sened'); await saxla('kassa'); kamBagla(); ciz();
+  toast('Sənəd hazırdır — «Jurnal» bölməsindən göndərin', 3.5);
+}
+async function kassaCix() {
+  S.kassa = null; await saxla('kassa'); kamBagla(); ciz();
+  toast('Kassa bağlandı. Yazılanlar «Jurnal»da qaralama kimi qaldı.', 3.5);
+}
+function kassaCiz() {
+  const y = $('#kassa');
+  if (!S.db) { y.replaceChildren(); return; }
+  let d = kassaSened();
+  if (S.kassa && !d) { S.kassa = null; saxla('kassa'); }
+  if (!S.kassa) { y.replaceChildren(el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Kassa rejimi — ardıcıl skan', onclick: kassaQur}))); return; }
+  const k = S.kassa, cix = k.nov === 'MEXARIC';
+  y.replaceChildren(el('div', {class: 'kart'},
+    el('div', {class: 'ad'}, 'Kassa', el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: NOV_AD[k.nov]}), el('span', {class: 'nis', text: d.setir.length + ' sətir'})),
+    el('div', {class: 'alt', text: k.anbar + (cix ? ' · ' + k.tey : '')}),
+    d.setir.length ? d.setir.slice().reverse().map(s => kassaSetri(d, s)) : el('div', {class: 'qeyd', text: 'Barkodu skan edin — mal bura düşəcək. Barkodsuz malı «Axtar» bölməsindən seçin.'}),
+    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Çıx', onclick: kassaCix}),
+      el('button', {class: 'b esas', type: 'button', text: 'Bitir', disabled: !d.setir.length, onclick: kassaBitir}))));
+}
+
 // ---------------------------------------------------------------- jurnal faylı (Fuad / Mehi məktub formatı: TAB ilə, hər məktub SON ilə bitir)
 const tmz = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').trim();
 function faylMetni(senedler, baglar) {
@@ -558,7 +699,7 @@ function faylMetni(senedler, baglar) {
   if (baglar.length) {
     const gid = `MOBIL-${c}-B${indi().replace(/\D/g, '')}`;
     [['MSG', gid], ['TIP', 'MOBIL_BARKOD'], ['KIMDEN', c], ['ISTIFADECI', S.ayar.ad], ['GID', gid], ['YARADILDI', indi()], ['SETIR_SAYI', baglar.length]].forEach(x => out.push(x[0] + '\t' + tmz(x[1])));
-    baglar.forEach((x, i) => out.push(['L', x.k, x.a, '', '', '', x.t, 'B' + (i + 1), x.b].map(tmz).join('\t')));
+    baglar.forEach((x, i) => out.push(['L', x.k, x.a, '', '', String(x.e || 1), x.t, 'B' + (i + 1), x.b].map(tmz).join('\t')));     // miqdar yerində: 1 skan = neçə vahid
     out.push('SON');
   }
   return out.join('\r\n') + '\r\n';
@@ -617,7 +758,7 @@ async function skanerYoxla() {
 function axtarCiz() {
   const q = $('#iAxtar').value, l = axtar(q, 60);
   $('#axtarQeyd').textContent = !S.db ? 'Əvvəlcə qalıq faylını yükləyin (Ayarlar).' : !q.trim() ? 'Adın bir hissəsini və ya kodu yazın. ə, ı, ş, ç, ö, ü, ğ hərflərini adi hərflə yazmaq olar.' : l.length ? (l.length === 60 ? 'İlk 60 nəticə — daha dəqiq yazın.' : l.length + ' nəticə') : 'Tapılmadı.';
-  $('#axtarSiy').replaceChildren(...l.map(m => malSetri(m, () => malKarti(m, ''))));
+  $('#axtarSiy').replaceChildren(...l.map(m => malSetri(m, () => S.kassa ? kassaElave(m, 1, '') : malKarti(m, ''))));
 }
 function ayarCiz() {
   const v = $('#v-ayar'), d = S.db, a = S.ayar;
@@ -664,7 +805,8 @@ function gorunus(ad) {
   if (ad === 'ayar') ayarCiz();
 }
 function ciz() {
-  durumYaz(); nisan();
+  durumYaz(); nisan(); kassaCiz();
+  $('#skanAlt').hidden = !!S.kassa;
   $('#skanAlt').replaceChildren(S.db ? el('div', {class: 'qeyd', text: 'Barkodu çərçivəyə gətirin. Barkodsuz mal üçün «Axtar» bölməsindən adına görə tapın.'})
     : el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Əvvəlcə qalıq faylını yükləyin'}), el('div', {class: 'qeyd', text: 'Excel-in OneDrive-a yazdığı «uyum_mobil_mehsullar.json» faylı lazımdır.'}),
         el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'Ayarlara keç', onclick: () => gorunus('ayar')}))));
