@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f5c4c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Uyum Mobil">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Uyum Mobil</title>
+<style>
+:root { --y: #0f5c4c; --y2: #a8491f; --fon: #f3f5f4; --kart: #ffffff; --mt: #1b2320; --boz: #66726d; --xett: #dbe2de; --qr: #b3261e; --sari: #8a5a00; }
+@media (prefers-color-scheme: dark) { :root { --y: #2a947d; --y2: #cf7647; --fon: #111514; --kart: #1b211f; --mt: #e7edea; --boz: #98a49f; --xett: #2b3430; --qr: #ef8c84; --sari: #e0b860; } }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body { font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--fon); color: var(--mt); display: flex; flex-direction: column; -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
+header { padding: calc(env(safe-area-inset-top) + 10px) 16px 9px; background: var(--y); color: #fff; }
+header b { font-size: 18px; } #durum { font-size: 12.5px; opacity: .9; margin-top: 1px; }
+main { flex: 1; overflow: auto; padding: 12px 16px 20px; -webkit-overflow-scrolling: touch; }
+nav { display: flex; background: var(--kart); border-top: 1px solid var(--xett); padding-bottom: env(safe-area-inset-bottom); }
+nav button { flex: 1; min-height: 52px; border: 0; background: none; color: var(--boz); font-size: 13.5px; position: relative; }
+nav button.sec { color: var(--y); font-weight: 650; box-shadow: inset 0 3px 0 var(--y); }
+nav i { font-style: normal; background: var(--y2); color: #fff; border-radius: 9px; font-size: 11px; padding: 0 6px; margin-left: 4px; }
+.v { display: none; } .v.sec { display: block; }
+h3 { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--boz); }
+.b { min-height: 46px; padding: 0 14px; border: 1px solid var(--xett); border-radius: 11px; background: var(--kart); color: var(--mt); font: inherit; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; text-align: center; cursor: pointer; }
+.b.esas { background: var(--y); border-color: var(--y); color: #fff; font-weight: 600; } .b.esas2 { background: var(--y2); border-color: var(--y2); color: #fff; font-weight: 600; }
+.b.tehluke { color: var(--qr); } .b:disabled { opacity: .5; }
+.lnk { border: 0; background: none; color: var(--y); font: inherit; padding: 6px 0; text-decoration: underline; cursor: pointer; }
+input, select, textarea { font: inherit; font-size: 16px; min-height: 46px; padding: 8px 12px; border: 1px solid var(--xett); border-radius: 11px; background: var(--kart); color: var(--mt); width: 100%; }
+label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 0; } label.sahe > * { margin-top: 3px; }
+.row { display: flex; gap: 8px; margin: 10px 0; } .row > * { flex: 1; min-width: 0; }
+#kam { position: relative; background: #000; border-radius: 14px; overflow: hidden; aspect-ratio: 4 / 3; }
+#vid { width: 100%; height: 100%; object-fit: cover; display: none; } #kam.aciq #vid { display: block; }
+.cerceve { position: absolute; inset: 30% 9%; border: 2px solid rgba(255,255,255,.9); border-radius: 10px; display: none; box-shadow: 0 0 0 999px rgba(0,0,0,.25); } #kam.aciq .cerceve { display: block; }
+#kamMesaj { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #cdd6d2; padding: 18px; text-align: center; } #kam.aciq #kamMesaj { display: none; }
+.kart { background: var(--kart); border: 1px solid var(--xett); border-radius: 14px; padding: 14px; margin: 10px 0; }
+.ad { font-size: 18px; font-weight: 650; overflow-wrap: anywhere; } .alt { color: var(--boz); font-size: 14px; margin-top: 2px; overflow-wrap: anywhere; }
+.cem { margin: 12px 0 6px; } .cem b { font-size: 26px; font-variant-numeric: tabular-nums; }
+.sr { display: flex; gap: 8px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--xett); font-size: 15px; } .sr span { flex: 1; min-width: 0; overflow-wrap: anywhere; } .sr b { font-variant-numeric: tabular-nums; } .sr i { font-style: normal; color: var(--sari); font-size: 13px; }
+.qeyd { color: var(--boz); font-size: 13px; margin: 8px 0; } .xeta { color: var(--qr); font-size: 14px; margin: 8px 0; }
+.siy > button { display: flex; width: 100%; gap: 10px; align-items: center; text-align: left; padding: 10px 2px; border: 0; border-bottom: 1px solid var(--xett); background: none; color: inherit; font: inherit; cursor: pointer; }
+.siy > button > span { flex: 1; min-width: 0; } .siy b.q { font-variant-numeric: tabular-nums; white-space: nowrap; } .siy .sif { color: var(--boz); font-weight: 400; }
+.pd { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; z-index: 10; } .pd[hidden] { display: none; }
+.pdq { background: var(--fon); width: 100%; max-height: 93%; overflow: auto; border-radius: 18px 18px 0 0; padding: 8px 16px calc(env(safe-area-inset-bottom) + 18px); }
+.pdx { display: flex; justify-content: flex-end; position: sticky; top: 0; } .pdx button { border: 0; background: var(--kart); color: var(--mt); width: 40px; height: 40px; border-radius: 20px; font-size: 18px; }
+.off { display: flex; gap: 12px; align-items: flex-start; margin: 10px 0; } .off img { width: 84px; height: 84px; object-fit: contain; background: #fff; border-radius: 10px; border: 1px solid var(--xett); }
+.ai { white-space: pre-wrap; font-size: 15px; background: var(--kart); border: 1px solid var(--xett); border-radius: 11px; padding: 10px 12px; margin: 10px 0; }
+#toast { position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 70px); background: #1f2925; color: #fff; padding: 12px 14px; border-radius: 12px; z-index: 30; text-align: center; transition: opacity .25s; } #toast[hidden] { display: none; }
+.nis { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 9px; background: var(--xett); color: var(--mt); margin-left: 6px; white-space: nowrap; } .nis.med { background: var(--y); color: #fff; } .nis.mex { background: var(--y2); color: #fff; }
+.sorgu { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; } .sorgu > div { background: var(--kart); border-radius: 16px; padding: 18px; width: 100%; max-width: 420px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header><b>Uyum Mobil</b><div id="durum">Yüklənir…</div></header>
+<main>
+  <section id="v-skan" class="v sec">
+    <div id="kam"><video id="vid" playsinline muted></video><div class="cerceve"></div><div id="kamMesaj">Kamera bağlıdır</div></div>
+    <div class="row">
+      <button id="bKam" class="b esas" type="button">Kameranı aç</button>
+      <button id="bIsiq" class="b" type="button" hidden>İşıq</button>
+      <label class="b">Şəkildən oxu<input id="fSekil" type="file" accept="image/*" capture="environment" hidden></label>
+    </div>
+    <form id="fKod" class="row"><input id="iKod" placeholder="Barkod və ya stok kodu" autocomplete="off" enterkeyhint="search" style="flex:3"><button class="b" style="flex:1">Tap</button></form>
+    <div id="skanAlt"></div>
+  </section>
+  <section id="v-axtar" class="v">
+    <input id="iAxtar" type="search" placeholder="Malın adı və ya kodu" autocomplete="off" enterkeyhint="search">
+    <div id="axtarQeyd" class="qeyd"></div>
+    <div id="axtarSiy" class="siy"></div>
+  </section>
+  <section id="v-jurnal" class="v"></section>
+  <section id="v-ayar" class="v"></section>
+</main>
+<nav>
+  <button data-v="skan" class="sec" type="button">Skan</button>
+  <button data-v="axtar" type="button">Axtar</button>
+  <button data-v="jurnal" type="button">Jurnal<i id="nJurnal" hidden></i></button>
+  <button data-v="ayar" type="button">Ayarlar</button>
+</nav>
+<div id="pd" class="pd" hidden><div class="pdq"><div class="pdx"><button id="pdBagla" type="button" aria-label="Bağla">✕</button></div><div id="pdm"></div></div></div>
+<div id="toast" hidden></div>
+<datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
+<script>
+'use strict';
+const SURUM = '0.1 · 12.11.2026';
+const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
+const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
+const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
+const $ = s => document.querySelector(s);
+
+function el(tag, at, ...ic) {
+  const e = document.createElement(tag);
+  if (at) for (const k in at) {
+    const v = at[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), v);
+    else if (k === 'hidden' || k === 'disabled' || k === 'selected' || k === 'value') e[k] = v;
+    else e.setAttribute(k, v);
+  }
+  for (const c of ic.flat(3)) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+
+// ---------------------------------------------------------------- yaddaş (IndexedDB; alınmasa localStorage)
+const KV = (() => {
+  let p;
+  const ac = () => p || (p = new Promise((res, rej) => {
+    const r = indexedDB.open('uyum-mobil', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  return {
+    async get(k) {
+      try {
+        const d = await ac();
+        return await new Promise((res, rej) => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+      } catch (e) { const v = localStorage.getItem('um:' + k); return v ? JSON.parse(v) : undefined; }
+    },
+    async set(k, v) {
+      try {
+        const d = await ac();
+        await new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+      } catch (e) { try { localStorage.setItem('um:' + k, JSON.stringify(v)); } catch (e2) {} }
+    }
+  };
+})();
+
+// ---------------------------------------------------------------- vəziyyət
+const S = {db: null, ix: new Map(), bark: {}, barkYeni: [], sened: [], det: null, detAd: '',
+  ayar: {cihaz: '', ad: '', anbar: '', gkey: '', gmodel: 'gemini-2.5-flash', sayac: 0}};
+const saxla = k => KV.set(k, S[k]);
+
+const pad = n => String(n).padStart(2, '0');
+function indi() { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+const bugun = () => indi().slice(0, 10);
+const tarixAz = t => t ? t.slice(8, 10) + '.' + t.slice(5, 7) + '.' + t.slice(0, 4) : '';
+const vaxtQisa = t => t ? t.slice(8, 10) + '.' + t.slice(5, 7) + ' ' + t.slice(11, 16) : '—';
+function say(x) { const r = Math.round(x * 1000) / 1000; return String(r).replace('.', ','); }
+function ededOxu(s) { const x = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isFinite(x) ? x : NaN; }
+function norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ə/g, 'e').replace(/ı/g, 'i').replace(/\s+/g, ' ').trim(); }
+
+let toastT;
+function toast(m, san) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, (san || 2.6) * 1000); }
+function sorus(metn, beli, xeyr) {
+  return new Promise(res => {
+    const o = el('div', {class: 'sorgu'}, el('div', null, metn, el('div', {class: 'row'},
+      el('button', {class: 'b', type: 'button', text: xeyr || 'Xeyr', onclick: () => { o.remove(); res(false); }}),
+      el('button', {class: 'b esas', type: 'button', text: beli || 'Bəli', onclick: () => { o.remove(); res(true); }}))));
+    document.body.append(o);
+  });
+}
+
+// ---------------------------------------------------------------- məlumat
+async function yukle() {
+  const [db, bark, barkYeni, sened, ayar] = await Promise.all(['db', 'bark', 'barkYeni', 'sened', 'ayar'].map(k => KV.get(k)));
+  if (bark) S.bark = bark; if (barkYeni) S.barkYeni = barkYeni; if (sened) S.sened = sened; if (ayar) Object.assign(S.ayar, ayar);
+  if (!S.ayar.cihaz) { S.ayar.cihaz = 'T' + Array.from({length: 4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join(''); await saxla('ayar'); }
+  if (db) dbQur(db);
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+}
+function dbYoxla(d) {
+  if (!d || d.v !== 1 || !Array.isArray(d.mallar) || !Array.isArray(d.anbarlar)) throw new Error('Bu, Uyum Mobil məhsul faylı deyil.');
+  for (const m of d.mallar) if (!m || typeof m.k !== 'string' || typeof m.a !== 'string') throw new Error('Fayldakı mal siyahısı zədəlidir.');
+  return d;
+}
+function dbQur(db) {
+  S.db = db; S.ix = new Map();
+  for (const m of db.mallar) { m._n = norm(m.a + ' ' + (m.s || []).join(' ')); S.ix.set(m.k.toLowerCase(), m); }
+  const doldur = (id, l) => $(id).replaceChildren(...(l || []).map(x => el('option', {value: x})));
+  doldur('#dlTey', db.teyinatlar); doldur('#dlKont', db.kontragentler);
+  for (const b in S.bark) if (db.barkodlar && db.barkodlar[b]) delete S.bark[b];        // Excel artıq bilir
+  durumYaz();
+}
+async function dbYaz(metn) {
+  const d = dbYoxla(JSON.parse(metn));
+  await KV.set('db', d); dbQur(d); saxla('bark');
+  toast(`Yükləndi: ${d.mallar.length} mal · ${vaxtQisa(d.vaxt)}`, 3.5);
+  ciz();
+}
+function durumYaz() {
+  const d = S.db;
+  $('#durum').textContent = (d ? `Qalıq: ${vaxtQisa(d.vaxt)} · ${d.mallar.length} mal` : 'Qalıq faylı yüklənməyib') + (navigator.onLine === false ? ' · oflayn' : '');
+}
+
+const cemQ = m => { let s = 0; for (const i in (m.q || {})) s += m.q[i]; return s; };
+function telFerq(kod) {
+  const r = {};
+  for (const d of S.sened) {
+    if (S.db && d.yaradildi <= S.db.vaxt) continue;                       // fayldan əvvəl yazılanlar artıq Excel-də ola bilər
+    for (const s of d.setir) if (s.k === kod) r[d.anbar] = (r[d.anbar] || 0) + (d.nov === 'MEDAXIL' ? s.m : -s.m);
+  }
+  return r;
+}
+function qaliqlar(m) {
+  const out = [], q = m.q || {}, f = telFerq(m.k);
+  S.db.anbarlar.forEach((a, i) => { const x = q[i] || 0, t = f[a] || 0; if (x || t) out.push({anbar: a, q: x, tel: t}); });
+  return out;
+}
+function axtar(sorgu, hedd) {
+  const s = norm(sorgu); if (!s || !S.db) return [];
+  const sz = s.split(' '), out = [];
+  for (const m of S.db.mallar) {
+    const k = m.k.toLowerCase(); let ok = true;
+    for (const w of sz) if (!m._n.includes(w) && !k.includes(w)) { ok = false; break; }
+    if (ok) out.push([k === s ? 0 : k.startsWith(s) ? 1 : m._n.startsWith(s) ? 2 : 3, cemQ(m) > 0 ? 0 : 1, m]);
+  }
+  out.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2].a.localeCompare(b[2].a, 'az'));
+  return out.slice(0, hedd || 60).map(x => x[2]);
+}
+function barkodKod(b) {
+  const v = [b]; if (/^\d{12}$/.test(b)) v.push('0' + b); if (/^0\d{12}$/.test(b)) v.push(b.slice(1));
+  for (const x of v) { const k = (S.db && S.db.barkodlar && S.db.barkodlar[x]) || S.bark[x]; if (k) return k; }
+  return '';
+}
+function barkodlari(kod) {
+  const s = new Set();
+  for (const src of [S.db && S.db.barkodlar || {}, S.bark]) for (const b in src) if (src[b] === kod) s.add(b);
+  return [...s];
+}
+function malSetri(m, klik) {
+  const c = cemQ(m);
+  return el('button', {type: 'button', onclick: klik}, el('span', null, el('div', {text: m.a}), el('div', {class: 'alt', text: m.k + ' · ' + (m.v || '—')})),
+    el('b', {class: 'q' + (c ? '' : ' sif'), text: say(c)}));
+}
+
+// ---------------------------------------------------------------- alt pəncərə
+function pdAc(node) { $('#pdm').replaceChildren(node); $('#pd').hidden = false; $('.pdq').scrollTop = 0; }
+function pdBagla() { $('#pd').hidden = true; $('#pdm').replaceChildren(); K.son = ''; }
+const pdAciq = () => !$('#pd').hidden;
+
+// ---------------------------------------------------------------- skaner
+const K = {stream: null, aktiv: false, mesgul: false, son: '', sonVaxt: 0, taymer: 0, track: null, isiq: false};
+function kitabxana() {
+  return new Promise((res, rej) => {
+    if (window.BarcodeDetectionAPI) return res();
+    const s = el('script', {src: LIB});
+    s.onload = () => window.BarcodeDetectionAPI ? res() : rej(new Error('Barkod kitabxanası işə düşmədi.'));
+    s.onerror = () => { s.remove(); rej(new Error('Barkod kitabxanası yüklənmədi. İlk dəfə internet lazımdır.')); };
+    document.head.append(s);
+  });
+}
+async function detektor() {
+  if (S.det) return S.det;
+  if ('BarcodeDetector' in window) {
+    try {
+      const var_ = await window.BarcodeDetector.getSupportedFormats(), f = FORMATLAR.filter(x => var_.includes(x));
+      if (f.includes('ean_13') && f.includes('code_128')) { S.detAd = 'telefonun öz oxuyucusu'; return S.det = new window.BarcodeDetector({formats: f}); }
+    } catch (e) {}
+  }
+  await kitabxana();
+  S.detAd = 'ZXing kitabxanası';
+  return S.det = new window.BarcodeDetectionAPI.BarcodeDetector({formats: FORMATLAR});
+}
+function kamXeta(e) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return 'Bu brauzerdə kamera açılmır. «Şəkildən oxu» düyməsini işlədin.';
+  if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) return 'Kameraya icazə verilməyib. Brauzer ayarlarından icazə verin.';
+  if (e && (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')) return 'Kamera tapılmadı.';
+  return 'Kamera açılmadı: ' + (e && e.message || e);
+}
+async function kamAc() {
+  $('#kamMesaj').textContent = 'Kamera açılır…';
+  try {
+    const det = await detektor();
+    K.stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: 'environment'}, width: {ideal: 1280}, height: {ideal: 720}}, audio: false});
+    const v = $('#vid'); v.srcObject = K.stream; await v.play();
+    K.track = K.stream.getVideoTracks()[0]; K.aktiv = true; K.son = '';
+    $('#kam').classList.add('aciq'); $('#bKam').textContent = 'Kameranı bağla';
+    const cap = K.track.getCapabilities ? K.track.getCapabilities() : {};
+    $('#bIsiq').hidden = !cap.torch;
+    dovr(det);
+  } catch (e) { kamBagla(); $('#kamMesaj').textContent = kamXeta(e); }
+}
+function dovr(det) {
+  clearTimeout(K.taymer);
+  if (!K.aktiv) return;
+  K.taymer = setTimeout(async () => {
+    if (K.aktiv && !K.mesgul && !pdAciq() && $('#vid').readyState >= 2) {
+      K.mesgul = true;
+      try { const r = await det.detect($('#vid')); if (r && r.length && r[0].rawValue) kodGeldi(r[0].rawValue); } catch (e) {}
+      K.mesgul = false;
+    }
+    dovr(det);
+  }, 140);
+}
+function kamBagla() {
+  K.aktiv = false; clearTimeout(K.taymer);
+  if (K.stream) K.stream.getTracks().forEach(t => t.stop());
+  K.stream = null; K.track = null; K.isiq = false; $('#vid').srcObject = null;
+  $('#kam').classList.remove('aciq'); $('#bKam').textContent = 'Kameranı aç'; $('#bIsiq').hidden = true; $('#kamMesaj').textContent = 'Kamera bağlıdır';
+}
+let ses;
+function bip() {
+  try {
+    ses = ses || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ses.createOscillator(), g = ses.createGain(); o.frequency.value = 880; g.gain.value = 0.08;
+    o.connect(g); g.connect(ses.destination); o.start(); o.stop(ses.currentTime + 0.09);
+  } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate(60);
+}
+function kodGeldi(xam) {
+  const b = String(xam).trim(); if (!b) return;
+  const t = Date.now(); if (b === K.son && t - K.sonVaxt < 2500) return;
+  K.son = b; K.sonVaxt = t; bip(); kodAc(b);
+}
+async function sekildenOxu(fayl) {
+  try {
+    const det = await detektor(), bmp = await createImageBitmap(fayl), r = await det.detect(bmp);
+    if (bmp.close) bmp.close();
+    if (r && r.length && r[0].rawValue) { bip(); kodAc(String(r[0].rawValue).trim()); } else toast('Şəkildə barkod tapılmadı');
+  } catch (e) { toast('Şəkil oxunmadı: ' + (e.message || e), 4); }
+}
+function kodAc(b) {
+  if (!S.db) { toast('Əvvəlcə qalıq faylını yükləyin (Ayarlar)', 4); return; }
+  const m = S.ix.get(b.toLowerCase());
+  if (m) return malKarti(m, '');
+  const k = barkodKod(b), mb = k && S.ix.get(k.toLowerCase());
+  if (mb) return malKarti(mb, b);
+  if (/[^\d\s-]/.test(b) && b.length < 40) { gorunus('axtar'); $('#iAxtar').value = b; axtarCiz(); return; }   // söz yazılıb - axtarış
+  namelum(b);
+}
+
+// ---------------------------------------------------------------- mal kartı
+function malKarti(m, barkod) {
+  const ql = qaliqlar(m), cem = cemQ(m), bl = barkodlari(m.k), info = el('div');
+  const bk = barkod || bl[0] || '';
+  pdAc(el('div', null,
+    el('div', {class: 'kart'},
+      el('div', {class: 'ad', text: m.a}), el('div', {class: 'alt', text: m.k + ' · ' + (m.v || 'vahid yoxdur')}),
+      el('div', {class: 'cem'}, el('b', {text: say(cem)}), ' ' + (m.v || '') + ' — cəmi qalıq'),
+      ql.length ? ql.map(x => el('div', {class: 'sr'}, el('span', {text: x.anbar}), el('b', {text: say(x.q)}),
+        x.tel ? el('i', {text: (x.tel > 0 ? '+' : '−') + say(Math.abs(x.tel)) + ' telefonda'}) : null)) : el('div', {class: 'qeyd', text: 'Heç bir anbarda qalıq yoxdur.'}),
+      el('div', {class: 'qeyd', text: `Qalıq ${vaxtQisa(S.db.vaxt)} vəziyyətinədir.`})),
+    el('div', {class: 'row'},
+      el('button', {class: 'b esas', type: 'button', text: 'Mədaxil', onclick: () => emForm(m, 'MEDAXIL', barkod)}),
+      el('button', {class: 'b esas2', type: 'button', text: 'Məxaric', onclick: () => emForm(m, 'MEXARIC', barkod)})),
+    el('div', {class: 'row'},
+      el('button', {class: 'b', type: 'button', text: 'İnternet', onclick: () => offGoster(bk, info)}),
+      el('a', {class: 'b', href: 'https://www.google.com/search?q=' + encodeURIComponent(bk || m.a), target: '_blank', rel: 'noopener', text: 'Google'}),
+      el('button', {class: 'b', type: 'button', text: 'AI izah', onclick: () => aiGoster(m, bk, info)})),
+    info,
+    el('div', {class: 'qeyd'}, 'Barkod: ' + (bl.length ? bl.join(', ') : 'bağlanmayıb') + '. ',
+      el('button', {class: 'lnk', type: 'button', text: 'Barkod bağla', onclick: () => barkodForm(m)}))));
+}
+function barkodForm(m) {
+  const i = el('input', {placeholder: 'Barkod', inputmode: 'numeric', autocomplete: 'off'});
+  pdAc(el('div', null, el('div', {class: 'kart'}, el('div', {class: 'ad', text: m.a}), el('div', {class: 'alt', text: m.k}),
+    el('div', {class: 'qeyd', text: 'Barkodu yazın. Və ya bu pəncərəni bağlayıb barkodu skan edin: «Naməlum barkod» çıxanda bu malı seçin.'}), i),
+    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Geri', onclick: () => malKarti(m, '')}),
+      el('button', {class: 'b esas', type: 'button', text: 'Bağla', onclick: () => { const b = i.value.trim(); if (b.length < 4) return toast('Barkodu yazın'); bagla(b, m, true); }}))));
+  i.focus();
+}
+async function bagla(b, m, sorgusuz) {
+  const kohne = barkodKod(b);
+  if (kohne && kohne !== m.k) { const km = S.ix.get(kohne.toLowerCase()); if (!await sorus(`Bu barkod artıq başqa mala bağlıdır:\n«${km ? km.a : kohne}»\n\nYeni mala keçirilsin?`, 'Keçir', 'Ləğv')) return; }
+  else if (!sorgusuz && !await sorus(`Barkod ${b}\n\n«${m.a}»\nmalına bağlansın?`, 'Bağla', 'Ləğv')) return;
+  S.bark[b] = m.k; S.barkYeni = S.barkYeni.filter(x => x.b !== b); S.barkYeni.push({b, k: m.k, a: m.a, t: indi()});
+  saxla('bark'); saxla('barkYeni'); toast('Barkod bağlandı'); nisan(); malKarti(m, b);
+}
+function namelum(b) {
+  const i = el('input', {type: 'search', placeholder: 'Malın adı və ya kodu', autocomplete: 'off'}), siy = el('div', {class: 'siy'}), info = el('div');
+  i.addEventListener('input', () => siy.replaceChildren(...axtar(i.value, 25).map(m => malSetri(m, () => bagla(b, m)))));
+  pdAc(el('div', null, el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Naməlum barkod'}), el('div', {class: 'alt', text: b}),
+    el('div', {class: 'qeyd', text: 'Bu barkod hələ heç bir mala bağlı deyil. Malı tapıb seçin — bir dəfə bağlanır, sonra özü tanınacaq.'}), info),
+    i, siy, el('div', {class: 'row'}, el('a', {class: 'b', href: 'https://www.google.com/search?q=' + encodeURIComponent(b), target: '_blank', rel: 'noopener', text: 'Google-da axtar'}))));
+  offGoster(b, info, true);
+}
+
+// ---------------------------------------------------------------- internet: Open Food Facts / Open Products Facts, Gemini
+async function offBax(b) {
+  const sahe = 'product_name,product_name_az,product_name_tr,product_name_ru,product_name_en,brands,quantity,generic_name,image_front_small_url,image_front_url';
+  for (const host of ['world.openfoodfacts.org', 'world.openproductsfacts.org']) {
+    try {
+      const r = await fetch(`https://${host}/api/v2/product/${encodeURIComponent(b)}.json?fields=${sahe}`);
+      if (!r.ok) continue;
+      const j = await r.json(), p = j && j.product;
+      if (j.status === 1 && p) {
+        const ad = p.product_name_az || p.product_name || p.product_name_tr || p.product_name_ru || p.product_name_en || p.generic_name || '';
+        return {ad, marka: p.brands || '', olcu: p.quantity || '', sekil: p.image_front_small_url || p.image_front_url || '', menbe: host.replace('world.', '')};
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+async function offGoster(b, yer, sakit) {
+  if (!b) { yer.replaceChildren(el('div', {class: 'qeyd', text: 'Bu malın barkodu məlum deyil — Google düyməsi ilə adına görə axtarın.'})); return null; }
+  if (!sakit) yer.replaceChildren(el('div', {class: 'qeyd', text: 'İnternetdə axtarılır…'}));
+  let r = await KV.get('off:' + b);
+  if (!r && navigator.onLine !== false) { r = await offBax(b); if (r) KV.set('off:' + b, r); }
+  if (!r) {
+    if (!sakit) yer.replaceChildren(el('div', {class: 'qeyd', text: navigator.onLine === false ? 'İnternet yoxdur.' : 'Açıq məhsul bazasında tapılmadı — Google düyməsi ilə axtarın.'}));
+    return null;
+  }
+  yer.replaceChildren(el('div', {class: 'off'}, r.sekil ? el('img', {src: r.sekil, alt: ''}) : null,
+    el('div', null, el('b', {text: r.ad || '(adsız məhsul)'}), el('div', {class: 'alt', text: [r.marka, r.olcu].filter(Boolean).join(' · ')}), el('div', {class: 'qeyd', text: 'Mənbə: ' + r.menbe}))));
+  return r;
+}
+async function geminiModeller(acar) {
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {headers: {'x-goog-api-key': acar}});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error && j.error.message || ('xəta ' + r.status));
+  return (j.models || []).filter(x => (x.supportedGenerationMethods || []).includes('generateContent')).map(x => String(x.name).replace(/^models\//, ''))
+    .filter(n => /^gemini-/.test(n) && !/(image|tts|audio|live|embedding|robotics|computer|learnlm|exp|preview)/.test(n));
+}
+function enYaxsiModel(l) {
+  const f = l.filter(n => /flash/.test(n) && !/lite/.test(n));
+  return (f.length ? f : l).slice().sort((a, b) => b.localeCompare(a, 'en', {numeric: true}))[0] || '';
+}
+async function geminiSor(metn, tekrar) {
+  const acar = S.ayar.gkey, model = S.ayar.gmodel || 'gemini-2.5-flash';
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': acar},
+    body: JSON.stringify({contents: [{parts: [{text: metn}]}], generationConfig: {temperature: 0.3}})});
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !tekrar) {                                  // model adı köhnəlib - uyğununu tap
+    const y = enYaxsiModel(await geminiModeller(acar));
+    if (y && y !== model) { S.ayar.gmodel = y; saxla('ayar'); return geminiSor(metn, true); }
+  }
+  if (!r.ok) throw new Error(j.error && j.error.message || ('xəta ' + r.status));
+  const c = j.candidates && j.candidates[0], t = c && c.content && (c.content.parts || []).map(p => p.text || '').join('').trim();
+  if (!t) throw new Error('Cavab boş gəldi.');
+  return t;
+}
+async function aiGoster(m, b, yer) {
+  if (!S.ayar.gkey) { yer.replaceChildren(el('div', {class: 'qeyd'}, 'AI izah üçün Gemini açarı lazımdır. ', el('button', {class: 'lnk', type: 'button', text: 'Ayarlarda daxil edin', onclick: () => { pdBagla(); gorunus('ayar'); }}))); return; }
+  if (navigator.onLine === false) { yer.replaceChildren(el('div', {class: 'qeyd', text: 'İnternet yoxdur.'})); return; }
+  yer.replaceChildren(el('div', {class: 'qeyd', text: 'AI cavab hazırlayır…'}));
+  try {
+    const off = b ? await KV.get('off:' + b) : null;
+    const t = await geminiSor('Tikinti anbarındakı bu material haqqında Azərbaycan dilində qısa (3-5 cümlə) izah yaz: nədir, harada və necə işlədilir, saxlanmasında nəyə diqqət etmək lazımdır. ' +
+      'Əmin olmadığın şeyi uydurma, bunu açıq de.\n' + `Ad: ${m.a}\nStok kodu: ${m.k}\nÖlçü vahidi: ${m.v || '-'}\n` + (b ? `Barkod: ${b}\n` : '') +
+      (off ? `Açıq məhsul bazasında: ${off.ad} ${off.marka} ${off.olcu}\n` : ''));
+    yer.replaceChildren(el('div', {class: 'ai', text: t}), el('div', {class: 'qeyd', text: 'AI cavabı səhv ola bilər. Model: ' + S.ayar.gmodel}));
+  } catch (e) { yer.replaceChildren(el('div', {class: 'xeta', text: 'AI cavab vermədi: ' + (e.message || e)})); }
+}
+
+// ---------------------------------------------------------------- sənədlər
+function qaralama(nov, anbar, yarat) {
+  let d = S.sened.find(x => x.status === 'QAR' && x.nov === nov && x.anbar === anbar);
+  if (!d && yarat) {
+    d = {id: 'D' + String(++S.ayar.sayac).padStart(6, '0'), nov, anbar, tarix: bugun(), sened: '', kont: '', aciq: '', yaradildi: indi(), status: 'QAR', n: 0, setir: []};
+    S.sened.unshift(d); saxla('ayar');
+  }
+  return d;
+}
+function susAnbar(m, nov) {
+  const a = S.db.anbarlar;
+  if (S.ayar.anbar && a.includes(S.ayar.anbar)) return S.ayar.anbar;
+  let en = 0, i0 = 0; for (const i in (m.q || {})) if (m.q[i] > en) { en = m.q[i]; i0 = +i; }        // ən çox qalıq olan anbar; yoxdursa siyahının birincisi
+  return a[i0] || a[0];
+}
+function emForm(m, nov, barkod) {
+  const cix = nov === 'MEXARIC', sus = susAnbar(m, nov);
+  const anb = el('select', null, S.db.anbarlar.map(a => el('option', {value: a, text: a, selected: a === sus})));
+  const miq = el('input', {inputmode: 'decimal', placeholder: '0', autocomplete: 'off'});
+  const tey = el('input', {placeholder: cix ? 'Hara / nə üçün' : 'Qeyd (istəyə görə)', list: cix ? 'dlTey' : null, autocomplete: 'off'});
+  const kont = el('input', {placeholder: 'Kimdən gəlib (istəyə görə)', list: 'dlKont', autocomplete: 'off'});
+  const sno = el('input', {placeholder: 'Qaimə № (istəyə görə)', autocomplete: 'off'});
+  const qal = el('div', {class: 'qeyd'}), xeta = el('div', {class: 'xeta'});
+  const movcud = a => ((m.q || {})[S.db.anbarlar.indexOf(a)] || 0) + (telFerq(m.k)[a] || 0);
+  const yenile = () => {
+    qal.textContent = `Bu anbarda: ${say(movcud(anb.value))} ${m.v || ''}`;
+    const d = qaralama(nov, anb.value, false);
+    if (!cix && d) { kont.value = d.kont; sno.value = d.sened; }
+  };
+  anb.addEventListener('change', yenile); yenile();
+  const elave = async () => {
+    const x = ededOxu(miq.value); xeta.textContent = '';
+    if (!(x > 0)) { xeta.textContent = 'Miqdarı yazın (sıfırdan böyük).'; miq.focus(); return; }
+    if (cix && !tey.value.trim()) { xeta.textContent = 'Təyinatı yazın: hara və ya nə üçün çıxır.'; tey.focus(); return; }
+    if (cix && x > movcud(anb.value) + 1e-9 && !await sorus(`Bu anbarda cəmi ${say(movcud(anb.value))} ${m.v || ''} var, siz ${say(x)} yazırsınız.\n\nExcel belə məxarici qəbul etməyə bilər. Yenə də yazılsın?`, 'Yaz', 'Düzəlt')) return;
+    const d = qaralama(nov, anb.value, true);
+    if (!cix) { d.kont = kont.value.trim(); d.sened = sno.value.trim(); }
+    d.n = (d.n || 0) + 1;
+    d.setir.push({k: m.k, a: m.a, v: m.v || '', m: x, t: tey.value.trim(), b: barkod || '', uid: d.id + '-' + d.n});
+    await saxla('sened'); nisan(); pdBagla();
+    toast(`${NOV_AD[nov]} qaralamasına yazıldı: ${say(x)} ${m.v || ''} (${d.setir.length} sətir)`, 3.2);
+    if ($('#v-jurnal').classList.contains('sec')) jurnalCiz();
+  };
+  pdAc(el('form', {onsubmit: e => { e.preventDefault(); elave(); }},
+    el('div', {class: 'kart'}, el('div', {class: 'ad'}, m.a, el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: NOV_AD[nov]})), el('div', {class: 'alt', text: m.k + ' · ' + (m.v || '—')}),
+      el('label', {class: 'sahe'}, 'Anbar', anb), qal,
+      el('label', {class: 'sahe'}, `Miqdar${m.v ? ' (' + m.v + ')' : ''}`, miq),
+      el('label', {class: 'sahe'}, cix ? 'Təyinat' : 'Qeyd', tey),
+      cix ? null : [el('label', {class: 'sahe'}, 'Kontragent', kont), el('label', {class: 'sahe'}, 'Sənəd №', sno)],
+      xeta),
+    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Geri', onclick: () => malKarti(m, barkod)}),
+      el('button', {class: 'b ' + (cix ? 'esas2' : 'esas'), text: 'Sənədə yaz'}))));
+  setTimeout(() => miq.focus(), 50);
+}
+const ST_AD = {QAR: 'Qaralama', HAZ: 'Göndərilməyib', GON: 'Göndərilib'};
+function senedKarti(d) {
+  const cem = d.setir.reduce((s, x) => s + x.m, 0);
+  return el('button', {type: 'button', onclick: () => senedDetal(d)},
+    el('span', null, el('div', null, d.id, el('span', {class: 'nis ' + (d.nov === 'MEXARIC' ? 'mex' : 'med'), text: NOV_AD[d.nov]}), el('span', {class: 'nis', text: ST_AD[d.status]})),
+      el('div', {class: 'alt', text: `${tarixAz(d.tarix)} · ${d.anbar}`}), d.status === 'GON' ? el('div', {class: 'alt', text: 'Göndərilib: ' + vaxtQisa(d.gonderildi)}) : null),
+    el('b', {class: 'q', text: d.setir.length + ' sətir'}));
+}
+function jurnalCiz() {
+  const v = $('#v-jurnal'), qr = S.sened.filter(d => d.status === 'QAR'), hz = S.sened.filter(d => d.status === 'HAZ'), gn = S.sened.filter(d => d.status === 'GON');
+  v.replaceChildren(...[
+    el('h3', {text: 'Göndərilməli'}),
+    hz.length || S.barkYeni.length ? [
+      el('div', {class: 'qeyd', text: `${hz.length} sənəd` + (S.barkYeni.length ? `, ${S.barkYeni.length} yeni barkod bağlantısı` : '') + ' — bir fayl kimi OneDrive-dakı «SabahCity_Mobil» qovluğuna göndərilir.'}),
+      el('div', {class: 'siy'}, hz.map(senedKarti)),
+      el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'Jurnalı göndər', onclick: gonder}))
+    ] : el('div', {class: 'qeyd', text: 'Göndəriləcək heç nə yoxdur.'}),
+    el('h3', {text: 'Qaralamalar'}),
+    qr.length ? el('div', {class: 'siy'}, qr.map(senedKarti)) : el('div', {class: 'qeyd', text: 'Açıq qaralama yoxdur. Malı tapıb «Mədaxil» və ya «Məxaric» basın.'}),
+    el('h3', {text: 'Göndərilmişlər'}),
+    gn.length ? el('div', {class: 'siy'}, gn.slice(0, 40).map(senedKarti)) : el('div', {class: 'qeyd', text: 'Hələ heç nə göndərilməyib.'})].flat());
+  nisan();
+}
+function nisan() {
+  const n = S.sened.filter(d => d.status !== 'GON').length + (S.barkYeni.length ? 1 : 0), e = $('#nJurnal');
+  e.hidden = !n; e.textContent = n;
+}
+function senedDetal(d) {
+  const qr = d.status === 'QAR', cix = d.nov === 'MEXARIC';
+  const tar = el('input', {type: 'date', value: d.tarix, max: bugun(), disabled: !qr});
+  const sno = el('input', {value: d.sened, placeholder: 'Qaimə №', disabled: !qr, autocomplete: 'off'});
+  const kont = el('input', {value: d.kont, placeholder: 'Kontragent', list: 'dlKont', disabled: !qr, autocomplete: 'off'});
+  const aciq = el('input', {value: d.aciq, placeholder: 'Ümumi qeyd', disabled: !qr, autocomplete: 'off'});
+  const yaz = () => { if (!qr) return; d.tarix = tar.value || bugun(); d.sened = sno.value.trim(); d.kont = kont.value.trim(); d.aciq = aciq.value.trim(); saxla('sened'); };
+  [tar, sno, kont, aciq].forEach(x => x.addEventListener('change', yaz));
+  const sil = async i => { if (!await sorus(`«${d.setir[i].a}» sətri silinsin?`, 'Sil', 'Ləğv')) return; d.setir.splice(i, 1); await saxla('sened'); senedDetal(d); nisan(); };
+  pdAc(el('div', null,
+    el('div', {class: 'kart'}, el('div', {class: 'ad'}, d.id, el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: NOV_AD[d.nov]}), el('span', {class: 'nis', text: ST_AD[d.status]})),
+      el('div', {class: 'alt', text: d.anbar}),
+      el('label', {class: 'sahe'}, 'Tarix', tar), cix ? null : [el('label', {class: 'sahe'}, 'Sənəd №', sno), el('label', {class: 'sahe'}, 'Kontragent', kont)], el('label', {class: 'sahe'}, 'Qeyd', aciq)),
+    el('div', {class: 'kart'}, d.setir.length ? d.setir.map((s, i) => el('div', {class: 'sr'}, el('span', null, el('div', {text: s.a}), el('div', {class: 'alt', text: s.k + (s.t ? ' · ' + s.t : '')})),
+      el('b', {text: say(s.m) + ' ' + s.v}), qr ? el('button', {class: 'lnk', type: 'button', text: 'sil', onclick: () => sil(i)}) : null)) : el('div', {class: 'qeyd', text: 'Sətir yoxdur.'})),
+    el('div', {class: 'row'},
+      qr ? el('button', {class: 'b tehluke', type: 'button', text: 'Sənədi sil', onclick: async () => { if (!await sorus('Bu qaralama tamamilə silinsin?', 'Sil', 'Ləğv')) return; S.sened = S.sened.filter(x => x !== d); await saxla('sened'); pdBagla(); jurnalCiz(); }}) : null,
+      qr ? el('button', {class: 'b esas', type: 'button', text: 'Bitir', disabled: !d.setir.length, onclick: async () => { yaz(); d.status = 'HAZ'; await saxla('sened'); pdBagla(); jurnalCiz(); toast('Sənəd göndərilməyə hazırdır'); }}) : null,
+      d.status === 'HAZ' ? el('button', {class: 'b', type: 'button', text: 'Qaralamaya qaytar', onclick: async () => { d.status = 'QAR'; await saxla('sened'); senedDetal(d); jurnalCiz(); }}) : null,
+      d.status === 'GON' ? el('button', {class: 'b', type: 'button', text: 'Yenidən göndərməyə hazırla', onclick: async () => { d.status = 'HAZ'; await saxla('sened'); pdBagla(); jurnalCiz(); }}) : null)));
+}
+
+// ---------------------------------------------------------------- jurnal faylı (Fuad / Mehi məktub formatı: TAB ilə, hər məktub SON ilə bitir)
+const tmz = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').trim();
+function faylMetni(senedler, baglar) {
+  const c = S.ayar.cihaz, out = [];
+  for (const d of senedler) {
+    const gid = `MOBIL-${c}-${d.id}`;
+    [['MSG', gid], ['TIP', 'MOBIL_DOC'], ['KIMDEN', c], ['ISTIFADECI', S.ayar.ad], ['GID', gid], ['NOV', d.nov], ['ANBAR', d.anbar], ['TARIX', d.tarix], ['SENED', d.sened],
+      ['KONTRAGENT', d.kont], ['ACIQLAMA', d.aciq], ['YARADILDI', d.yaradildi], ['SETIR_SAYI', d.setir.length]].forEach(x => out.push(x[0] + '\t' + tmz(x[1])));
+    for (const s of d.setir) out.push(['L', s.k, s.a, s.v, d.anbar, String(s.m), s.t, s.uid, s.b].map(tmz).join('\t'));
+    out.push('SON');
+  }
+  if (baglar.length) {
+    const gid = `MOBIL-${c}-B${indi().replace(/\D/g, '')}`;
+    [['MSG', gid], ['TIP', 'MOBIL_BARKOD'], ['KIMDEN', c], ['ISTIFADECI', S.ayar.ad], ['GID', gid], ['YARADILDI', indi()], ['SETIR_SAYI', baglar.length]].forEach(x => out.push(x[0] + '\t' + tmz(x[1])));
+    baglar.forEach((x, i) => out.push(['L', x.k, x.a, '', '', '', x.t, 'B' + (i + 1), x.b].map(tmz).join('\t')));
+    out.push('SON');
+  }
+  return out.join('\r\n') + '\r\n';
+}
+function gonderHazirla() {
+  const hz = S.sened.filter(d => d.status === 'HAZ'), bg = S.barkYeni.slice();
+  if (!hz.length && !bg.length) return null;
+  return {hz, bg, ad: `MOBIL__${S.ayar.cihaz}__${indi().replace(/[-:]/g, '').replace(' ', '-')}.txt`, metn: faylMetni(hz, bg)};
+}
+async function gonderCatdir(ad, metn) {                                    // '' = istifadəçi ləğv etdi
+  try {
+    const f = new File([metn], ad, {type: 'text/plain'});
+    if (navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f], title: ad}); return 'paylaşıldı'; }
+  } catch (e) { if (e && e.name === 'AbortError') return ''; }
+  const u = URL.createObjectURL(new Blob([metn], {type: 'text/plain'})), a = el('a', {href: u, download: ad});     // paylaşma yoxdur - fayl kimi endir
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000);
+  return 'endirildi';
+}
+async function gonderBitir(g, yol) {
+  const t = indi();
+  g.hz.forEach(d => { d.status = 'GON'; d.gonderildi = t; d.fayl = g.ad; });
+  S.barkYeni = S.barkYeni.filter(x => !g.bg.some(y => y.b === x.b && y.t === x.t));
+  await saxla('sened'); await saxla('barkYeni'); jurnalCiz();
+  toast(`Fayl ${yol}: ${g.hz.length} sənəd` + (g.bg.length ? `, ${g.bg.length} barkod` : ''), 4);
+}
+async function gonder() {
+  const g = gonderHazirla();
+  if (!g) return toast('Göndəriləcək heç nə yoxdur');
+  const yol = await gonderCatdir(g.ad, g.metn);
+  if (!yol) return toast('Göndərmə ləğv olundu');
+  await gonderBitir(g, yol);
+}
+
+// ---------------------------------------------------------------- EAN-13 çəkmək (skaner özünüyoxlaması)
+function ean13Ciz(kod) {
+  const Lk = ['0001101', '0011001', '0010011', '0111101', '0100011', '0110001', '0101111', '0111011', '0110111', '0001011'];
+  const Rk = Lk.map(x => x.replace(/./g, c => c === '0' ? '1' : '0')), Gk = Rk.map(x => x.split('').reverse().join(''));
+  const P = ['LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG', 'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL'][+kod[0]];
+  let bit = '101';
+  for (let i = 1; i <= 6; i++) bit += (P[i - 1] === 'L' ? Lk : Gk)[+kod[i]];
+  bit += '01010';
+  for (let i = 7; i <= 12; i++) bit += Rk[+kod[i]];
+  bit += '101';
+  const w = 4, sak = 12, c = el('canvas'); c.width = (bit.length + sak * 2) * w; c.height = 170;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.fillStyle = '#000';
+  for (let i = 0; i < bit.length; i++) if (bit[i] === '1') g.fillRect((sak + i) * w, 15, w, 140);
+  return c;
+}
+async function skanerYoxla() {
+  const kod = '4006381333931', det = await detektor(), r = await det.detect(ean13Ciz(kod));
+  if (!(r && r.length && r[0].rawValue === kod)) throw new Error('Sınaq barkodu oxunmadı.');
+  return S.detAd;
+}
+
+// ---------------------------------------------------------------- görünüşlər
+function axtarCiz() {
+  const q = $('#iAxtar').value, l = axtar(q, 60);
+  $('#axtarQeyd').textContent = !S.db ? 'Əvvəlcə qalıq faylını yükləyin (Ayarlar).' : !q.trim() ? 'Adın bir hissəsini və ya kodu yazın. ə, ı, ş, ç, ö, ü, ğ hərflərini adi hərflə yazmaq olar.' : l.length ? (l.length === 60 ? 'İlk 60 nəticə — daha dəqiq yazın.' : l.length + ' nəticə') : 'Tapılmadı.';
+  $('#axtarSiy').replaceChildren(...l.map(m => malSetri(m, () => malKarti(m, ''))));
+}
+function ayarCiz() {
+  const v = $('#v-ayar'), d = S.db, a = S.ayar;
+  const fayl = el('input', {type: 'file', accept: '.json,application/json,text/plain', hidden: true});
+  fayl.addEventListener('change', async () => { const f = fayl.files[0]; if (!f) return; try { await dbYaz(await f.text()); } catch (e) { toast('Fayl yüklənmədi: ' + (e.message || e), 5); } fayl.value = ''; });
+  const ad = el('input', {value: a.ad, placeholder: 'Adınız (jurnalda görünür)', autocomplete: 'off'});
+  ad.addEventListener('change', () => { a.ad = ad.value.trim(); saxla('ayar'); });
+  const anb = el('select', null, el('option', {value: '', text: '— hər dəfə seçilsin —'}), (d ? d.anbarlar : []).map(x => el('option', {value: x, text: x, selected: x === a.anbar})));
+  anb.addEventListener('change', () => { a.anbar = anb.value; saxla('ayar'); });
+  const gk = el('input', {type: 'password', value: a.gkey, placeholder: 'Gemini API açarı', autocomplete: 'off'});
+  gk.addEventListener('change', () => { a.gkey = gk.value.trim(); saxla('ayar'); });
+  const gm = el('input', {value: a.gmodel, placeholder: 'gemini-2.5-flash', autocomplete: 'off', autocapitalize: 'off'});
+  gm.addEventListener('change', () => { a.gmodel = gm.value.trim(); saxla('ayar'); });
+  const gq = el('div', {class: 'qeyd'}), sq = el('div', {class: 'qeyd', text: S.detAd ? 'Oxuyucu: ' + S.detAd : ''});
+  v.replaceChildren(
+    el('h3', {text: 'Qalıq faylı'}),
+    el('div', {class: 'kart'}, el('div', {text: d ? `${d.mallar.length} mal · ${d.anbarlar.length} anbar` : 'Hələ yüklənməyib'}),
+      el('div', {class: 'alt', text: d ? `Excel-in ${vaxtQisa(d.vaxt)} vəziyyəti (möhür ${d.mohur || '—'})` : 'OneDrive → SabahCity_Mobil → uyum_mobil_mehsullar.json'}),
+      el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: d ? 'Yeni faylı yüklə' : 'Faylı seç', onclick: () => fayl.click()})), fayl,
+      el('div', {class: 'qeyd', text: 'Qalıq son yüklənən fayla qədər təzədir. Telefon internetsiz də işləyir.'})),
+    el('h3', {text: 'İstifadəçi'}),
+    el('div', {class: 'kart'}, el('label', {class: 'sahe'}, 'Ad', ad), el('label', {class: 'sahe'}, 'Əsas anbar', anb), el('div', {class: 'qeyd', text: 'Cihaz kodu: ' + a.cihaz})),
+    el('h3', {text: 'AI izah (Gemini)'}),
+    el('div', {class: 'kart'}, el('label', {class: 'sahe'}, 'API açarı (yalnız bu telefonda saxlanır)', gk), el('label', {class: 'sahe'}, 'Model', gm),
+      el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Modeli yoxla', onclick: async () => {
+        if (!a.gkey) return toast('Əvvəlcə açarı yazın'); gq.textContent = 'Yoxlanır…';
+        try { const l = await geminiModeller(a.gkey), y = enYaxsiModel(l); if (y) { a.gmodel = y; gm.value = y; saxla('ayar'); } gq.textContent = l.length ? 'Açar işləyir. Seçildi: ' + y : 'Uyğun model tapılmadı.'; }
+        catch (e) { gq.textContent = 'Alınmadı: ' + (e.message || e); } }})), gq,
+      el('div', {class: 'qeyd', text: 'Pulsuz açar: aistudio.google.com → «Get API key».'})),
+    el('h3', {text: 'Skaner'}),
+    el('div', {class: 'kart'}, el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Skaneri yoxla', onclick: async () => {
+        sq.textContent = 'Yoxlanır…'; try { sq.textContent = 'İşləyir — ' + await skanerYoxla(); } catch (e) { sq.textContent = 'Alınmadı: ' + (e.message || e); } }})), sq),
+    el('h3', {text: 'Haqqında'}),
+    el('div', {class: 'kart'}, el('div', {text: 'Uyum Mobil ' + SURUM}),
+      el('div', {class: 'qeyd', text: `Bağlanmış barkod: ${Object.keys(S.bark).length + (d && d.barkodlar ? Object.keys(d.barkodlar).length : 0)} · sənəd: ${S.sened.length}`}),
+      el('div', {class: 'qeyd', text: 'Ana ekrana əlavə: iPhone — Safari-də «Paylaş» → «Ana ekrana əlavə et». Android — Chrome menyusu → «Tətbiqi quraşdır».'})));
+}
+function gorunus(ad) {
+  document.querySelectorAll('.v').forEach(x => x.classList.toggle('sec', x.id === 'v-' + ad));
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('sec', x.dataset.v === ad));
+  if (ad !== 'skan' && K.aktiv) kamBagla();
+  if (ad === 'axtar') { axtarCiz(); setTimeout(() => $('#iAxtar').focus(), 50); }
+  if (ad === 'jurnal') jurnalCiz();
+  if (ad === 'ayar') ayarCiz();
+}
+function ciz() {
+  durumYaz(); nisan();
+  $('#skanAlt').replaceChildren(S.db ? el('div', {class: 'qeyd', text: 'Barkodu çərçivəyə gətirin. Barkodsuz mal üçün «Axtar» bölməsindən adına görə tapın.'})
+    : el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Əvvəlcə qalıq faylını yükləyin'}), el('div', {class: 'qeyd', text: 'Excel-in OneDrive-a yazdığı «uyum_mobil_mehsullar.json» faylı lazımdır.'}),
+        el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'Ayarlara keç', onclick: () => gorunus('ayar')}))));
+  const sec = document.querySelector('.v.sec').id.slice(2);
+  if (sec === 'axtar') axtarCiz(); if (sec === 'jurnal') jurnalCiz(); if (sec === 'ayar') ayarCiz();
+}
+
+// ---------------------------------------------------------------- başlanğıc
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => gorunus(b.dataset.v)));
+$('#pdBagla').addEventListener('click', pdBagla);
+$('#pd').addEventListener('click', e => { if (e.target === $('#pd')) pdBagla(); });
+$('#bKam').addEventListener('click', () => K.aktiv ? kamBagla() : kamAc());
+$('#bIsiq').addEventListener('click', async () => { try { K.isiq = !K.isiq; await K.track.applyConstraints({advanced: [{torch: K.isiq}]}); } catch (e) { toast('İşıq açılmadı'); } });
+$('#fSekil').addEventListener('change', e => { const f = e.target.files[0]; if (f) sekildenOxu(f); e.target.value = ''; });
+$('#fKod').addEventListener('submit', e => { e.preventDefault(); const b = $('#iKod').value.trim(); if (b) { $('#iKod').value = ''; $('#iKod').blur(); kodAc(b); } });
+$('#iAxtar').addEventListener('input', axtarCiz);
+document.addEventListener('visibilitychange', () => { if (document.hidden && K.aktiv) kamBagla(); });
+window.addEventListener('online', durumYaz); window.addEventListener('offline', durumYaz);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+(async () => {
+  try { await yukle(); } catch (e) { toast('Yaddaş oxunmadı: ' + (e.message || e), 5); }
+  if (!S.db && new URLSearchParams(location.search).has('numune')) { try { await dbYaz(await (await fetch('numune.json')).text()); } catch (e) {} }
+  ciz();
+  if (navigator.onLine !== false) setTimeout(() => skanerYoxla().catch(() => {}), 1500);       // kitabxana oflayn üçün əvvəlcədən keşlənsin
+})();
+</script>
+</body>
+</html>
