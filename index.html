@@ -99,7 +99,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.3 · 21.11.2026';
+const SURUM = '0.3.4 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
@@ -184,7 +184,9 @@ async function api(fn, ...args) {
   let r, j;
   try {
     r = await fetch(url, {method: 'POST', body: JSON.stringify(sorgu),
-      headers: {'Content-Type': 'application/json', 'Neon-Connection-String': cs, 'Neon-Raw-Text-Output': 'true', 'Neon-Array-Mode': 'true'}});
+      // «Content-Type» GÖNDƏRİLMİR: Neon-un CORS siyahısında yoxdur — Chrome (Android) belə sorğunu kəsir («Failed to fetch»), Neon-un öz
+      // brauzer kitabxanası da göndərmir (gövdə mətn kimi gedir, Neon JSON kimi oxuyur). 21.11: Fuadın telefonu buna görə girə bilmirdi.
+      headers: {'Neon-Connection-String': cs, 'Neon-Raw-Text-Output': 'true', 'Neon-Array-Mode': 'true'}});
   } catch (e) { throw new ApiXeta('OFFLINE', `Mərkəzə qoşulmaq olmadı — internet yoxdur və ya şəbəkə mərkəzi bağlayır (${(e && e.message) || e}).`); }
   try { j = await r.json(); } catch (e) { j = {}; }
   if (!r.ok && api.yoxlama) throw new ApiXeta(j.hint || 'HTTP' + r.status, j.message || `Mərkəz cavab vermədi (${r.status})`);   // yoxlama: hesabdan çıxarmır
@@ -235,7 +237,7 @@ async function baglantiYoxla(yer) {                                       // «B
     : !merkez && saatSehv ? 'Telefonun tarixi/saatı səhvdir — buna görə təhlükəsiz bağlantı qurulmur. Telefonun Ayarlar → Tarix və saat → «Avtomatik» seçin, sonra yenidən yoxlayın.'
     : !merkez && kenar === false ? 'Telefon kənar saytlara çıxa bilmir (bu şəbəkə məhduddur). Mobil internetə və ya başqa Wi-Fi-a keçib yenidən yoxlayın.'
     : !merkez && sade === false ? 'Bu şəbəkə və ya telefon mərkəzin ünvanını (neon.tech) bağlayır. 1) Wi-Fi-dan mobil internetə (və ya əksinə) keçin. 2) Telefonda VPN və ya reklam bloklayıcı varsa söndürün. 3) Ayarlar → Şəbəkə → «Şəxsi DNS» (Private DNS) — «Avtomatik» və ya «Söndür» edin. Sonra yenidən yoxlayın.'
-    : !merkez && sade ? 'Mərkəzə çatır, amma brauzer sorğunu buraxmır — Chrome köhnədir. Play Store → Chrome → «Yenilə», sonra proqramı bağlayıb yenidən açın.'
+    : !merkez && sade ? 'Mərkəzə çatır, amma sorğu yolda kəsilir. Proqramı bağlayıb yenidən açın (yeni versiya gəlsin); düzəlməsə — telefonda antivirus / VPN / reklam bloklayıcı varsa söndürün və ya başqa şəbəkə ilə yoxlayın, sonra bu ekranın şəklini adminə göndərin.'
     : !merkez ? 'İnternet var, amma mərkəzə çatmaq olmur. Wi-Fi-dan mobil internetə (və ya əksinə) keçib yenidən yoxlayın. Düzəlməsə — bu ekranın şəklini adminə göndərin.'
     : !S.giris ? 'Bağlantı qaydasındadır — «Daxil ol» basıb istifadəçi adınız və parolunuzla daxil olun.' : 'Hər şey qaydasındadır.';
   yer.replaceChildren(el('div', {class: 'kart yoxla'}, l.map(x => el('div', {class: 'sr'}, el('b', {class: x[0] === '✘' ? 'qr' : '', text: x[0]}), el('span', {text: x[1]}), el('i', {text: x[2]}))),
