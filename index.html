@@ -62,6 +62,8 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 .tez { gap: 6px; } .tez .b { min-height: 38px; font-size: 14px; padding: 0 8px; }
 .her .gir { color: #1f8a4c; } .her .cix { color: var(--qr); } @media (prefers-color-scheme: dark) { .her .gir { color: #5fd08f; } }
 .her .sr { align-items: flex-start; } .her .sr b { white-space: nowrap; } .cemh { font-size: 14px; margin: 6px 0; }
+.siy.her > button { align-items: flex-start; } .siy.her > button b { white-space: nowrap; }
+.siy > button > .qutu { flex: none; }
 .siy .nis { white-space: normal; max-width: 100%; }
 .yoxla .sr b { width: 22px; flex: none; } .yoxla .sr span { flex: none; width: 42%; } .yoxla .sr i { flex: 1; font-style: normal; color: var(--boz); overflow-wrap: anywhere; }                          /* uzun vəziyyət («Təsdiq edildi və icra olundu») dar ekranda sətrə bölünür */
 .siy > button.secili { background: rgba(42, 148, 125, .16); } .qutu { font-size: 22px; line-height: 1; color: var(--y); flex: none; }
@@ -93,7 +95,7 @@ textarea { min-height: 70px; resize: vertical; }
     <div id="axtarSiy" class="siy"></div>
   </section>
   <section id="v-qaliq" class="v">
-    <div class="row"><button id="bHereket" class="b" type="button">📋 Hərəkətlər (filtr)</button></div>
+    <div class="row"><button id="bHereket" class="b" type="button">📋 Hərəkətlər (filtr)</button><button id="bUyum" class="b" type="button" hidden>✅ UyumSoft gözləyənlər</button></div>
     <select id="qAnbar" aria-label="Anbar"></select>
     <div id="qFilt" class="row filt"></div>
     <input id="iQaliq" type="search" placeholder="Bu anbarda axtar" autocomplete="off" enterkeyhint="search">
@@ -116,7 +118,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.9 · 21.11.2026';
+const SURUM = '0.3.10 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Çıxış'};
@@ -664,8 +666,10 @@ function qaliqCiz() {
     onclick: () => { S.ayar.qFilt = k; saxla('ayar'); qaliqCiz(); }})));
   $('#qQeyd').textContent = (l.length ? `${l.length} mal` : 'Bu seçimdə mal yoxdur.') + (l.length > HEDD ? ` — ilk ${HEDD} göstərilir, axtarışla dəqiqləşdirin` : '') +
     ` · qalıq ${vaxtQisa(d.vaxt)} vəziyyətinədir`;
-  $('#qToplu').replaceChildren(...(f === 'barkodsuz' && l.length ? [el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button',
-    text: `Göstərilənlərə barkod ver (${Math.min(l.length, 100)})`, onclick: () => topluBarkod(l.map(x => x.m))}))] : []));
+  $('#bUyum').hidden = !(S.giris && S.giris.me && S.giris.me.role === 'admin');
+  $('#qToplu').replaceChildren(...(l.length ? [el('div', {class: 'row'},
+    f === 'barkodsuz' ? el('button', {class: 'b esas', type: 'button', text: `Göstərilənlərə barkod ver (${Math.min(l.length, 100)})`, onclick: () => topluBarkod(l.map(x => x.m))}) : null,
+    el('button', {class: 'b', type: 'button', text: '⬇ Excel', onclick: () => qaliqExcel(l, f)}))] : []));
   $('#qSiy').replaceChildren(...l.slice(0, HEDD).map(({m, q, bar}) => el('button', {type: 'button', onclick: () => malKarti(m, '')},
     el('span', null, el('div', {text: m.a}), el('div', {class: 'alt', text: m.k + (bar ? ' · ▮ barkod var' : ' · barkodsuz')})),
     el('b', {class: 'q' + (q < 0 ? ' qr' : ''), text: say(q) + ' ' + (m.v || '')}))));
@@ -701,7 +705,7 @@ function hereketSetri(x, malGoster) {                                      // [r
       [x[5], x[11], x[12]].some(Boolean) ? el('div', {class: 'alt', text: [x[5], x[11], x[12]].filter(Boolean).join(' · ')}) : null),
     el('b', {class: g ? 'gir' : 'cix', text: (g ? '+' + say(g) : '−' + say(c)) + (x[8] ? ' ' + x[8] : '')}));
 }
-async function hereketYukle(p, yer, malGoster) {                            // nəticə + cəmlər + «Daha çox»
+async function hereketYukle(p, yer, malGoster, excelAd) {                   // nəticə + cəmlər + «Daha çox» (+ «⬇ Excel» — bütün nəticə)
   if (!S.giris) { yer.replaceChildren(el('div', {class: 'qeyd', text: 'Əvvəlcə daxil olun (Ayarlar).'})); return; }
   if (navigator.onLine === false) { yer.replaceChildren(el('div', {class: 'qeyd', text: 'Hərəkətlər üçün internet lazımdır.'})); return; }
   yer.replaceChildren(el('div', {class: 'qeyd', text: 'Yüklənir…'}));
@@ -717,7 +721,8 @@ async function hereketYukle(p, yer, malGoster) {                            // n
   };
   const c = r.cem || {};
   yer.replaceChildren(el('div', {class: 'cemh'}, c.n ? [`${c.n} əməliyyat`, +c.g ? [' · ', el('b', {class: 'gir', text: '+' + say(+c.g)}), ' gəlib'] : null,
-    +c.c ? [' · ', el('b', {class: 'cix', text: '−' + say(+c.c)}), ' çıxıb'] : null] : 'Bu seçimdə hərəkət yoxdur.'), siy, dav);
+    +c.c ? [' · ', el('b', {class: 'cix', text: '−' + say(+c.c)}), ' çıxıb'] : null] : 'Bu seçimdə hərəkət yoxdur.'),
+    excelAd && c.n ? el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: '⬇ Excel' + (c.n > 5000 ? ' (ilk 5000)' : ''), onclick: e => hereketExcel(p, excelAd, e.target)})) : null, siy, dav);
   yer.querySelector('.cemh').classList.add('her');
   elave(r);
 }
@@ -725,7 +730,7 @@ function tarixce(m, barkod) {
   const yer = el('div');
   pdAc(el('div', null, el('div', {class: 'kart'}, el('div', {class: 'ad', text: m.a}), el('div', {class: 'alt', text: m.k + ' · tarixçə (ən yenisi yuxarıda)'}), yer),
     el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Geri', onclick: () => malKarti(m, barkod || '')}))));
-  hereketYukle({kod: m.k, limit: 50}, yer, false);
+  hereketYukle({kod: m.k, limit: 50}, yer, false, 'Tarixce_' + m.k);
 }
 function hereketForm() {
   if (!S.db) { toast('Əvvəlcə mərkəzə qoşulub daxil olun (Ayarlar)', 3.5); return; }
@@ -738,7 +743,7 @@ function hereketForm() {
   const yer = el('div');
   const goster = () => {
     S.ayar.herF = {anbar: anb.value, tip: tip.value}; saxla('ayar');
-    hereketYukle({anbar: anb.value, tip: tip.value, t1: t1.value, t2: t2.value, sened: sen.value.trim(), soz: soz.value.trim(), limit: 100}, yer, true);
+    hereketYukle({anbar: anb.value, tip: tip.value, t1: t1.value, t2: t2.value, sened: sen.value.trim(), soz: soz.value.trim(), limit: 100}, yer, true, 'Hereketler');
   };
   pdAc(el('form', {onsubmit: e => { e.preventDefault(); goster(); }},
     el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Stok hərəkətləri'}),
@@ -748,6 +753,124 @@ function hereketForm() {
       el('div', {class: 'row'}, el('button', {class: 'b esas', text: 'Göstər'}))),
     el('div', {class: 'kart'}, yer)));
   goster();
+}
+
+// ---------------------------------------------------------------- Excel faylı (.xlsx telefonda yaradılır — kitabxanasız; paylaş / yüklə)
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipYaz(fayllar) {                                                // sıxılmamış ZIP (STORE) — xlsx-in qabı
+  const enc = new TextEncoder(), hisse = [], merkez = []; let ofs = 0;
+  for (const f of fayllar) {
+    const ad = enc.encode(f.ad), d = enc.encode(f.metn), crc = crc32(d);
+    const h = new DataView(new ArrayBuffer(30));
+    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, 0, 2], [12, 0x21, 2], [14, crc, 4], [18, d.length, 4], [22, d.length, 4], [26, ad.length, 2], [28, 0, 2]]
+      .forEach(([o, v, n]) => n === 4 ? h.setUint32(o, v, true) : h.setUint16(o, v, true));
+    const m = new DataView(new ArrayBuffer(46));
+    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, 0, 2], [14, 0x21, 2], [16, crc, 4], [20, d.length, 4], [24, d.length, 4], [28, ad.length, 2],
+     [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, ofs, 4]].forEach(([o, v, n]) => n === 4 ? m.setUint32(o, v, true) : m.setUint16(o, v, true));
+    hisse.push(new Uint8Array(h.buffer), ad, d); merkez.push(new Uint8Array(m.buffer), ad);
+    ofs += 30 + ad.length + d.length;
+  }
+  const mo = merkez.reduce((t, x) => t + x.length, 0), e = new DataView(new ArrayBuffer(22));
+  [[0, 0x06054b50, 4], [4, 0, 2], [6, 0, 2], [8, fayllar.length, 2], [10, fayllar.length, 2], [12, mo, 4], [16, ofs, 4], [20, 0, 2]].forEach(([o, v, n]) => n === 4 ? e.setUint32(o, v, true) : e.setUint16(o, v, true));
+  return new Blob([...hisse, ...merkez, new Uint8Array(e.buffer)], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function xlsxYaz(vereq, basliq, setirler, enler) {                        // bir vərəq: başlıq (qalın, dondurulmuş, filtrli) + sətirlər (ədəd → rəqəm)
+  const x = v => String(v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const sut = i => { let s = ''; for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s; return s; };
+  const xana = (v, r, i, st) => v == null || v === '' ? '' : typeof v === 'number' && isFinite(v) ? `<c r="${sut(i)}${r}"${st}><v>${v}</v></c>`
+    : `<c r="${sut(i)}${r}" t="inlineStr"${st}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+  const rows = [basliq, ...setirler].map((s, j) => `<row r="${j + 1}">${s.map((v, i) => xana(v, j + 1, i, j ? '' : ' s="1"')).join('')}</row>`).join('');
+  const ad = String(vereq).replace(/[\[\]:*?\/\\]/g, ' ').slice(0, 31) || 'Vərəq';
+  const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main', RNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  return zipYaz([
+    {ad: '[Content_Types].xml', metn: XML + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+    {ad: '_rels/.rels', metn: XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="' + RNS + '/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+    {ad: 'xl/workbook.xml', metn: XML + `<workbook xmlns="${NS}" xmlns:r="${RNS}"><sheets><sheet name="${x(ad)}" sheetId="1" r:id="rId1"/></sheets></workbook>`},
+    {ad: 'xl/_rels/workbook.xml.rels', metn: XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="' + RNS + '/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="' + RNS + '/styles" Target="styles.xml"/></Relationships>'},
+    {ad: 'xl/styles.xml', metn: XML + `<styleSheet xmlns="${NS}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`},
+    {ad: 'xl/worksheets/sheet1.xml', metn: XML + `<worksheet xmlns="${NS}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` +
+      `<cols>${basliq.map((_, i) => `<col min="${i + 1}" max="${i + 1}" width="${(enler && enler[i]) || 14}" customWidth="1"/>`).join('')}</cols>` +
+      `<sheetData>${rows}</sheetData><autoFilter ref="A1:${sut(basliq.length - 1)}${setirler.length + 1}"/></worksheet>`}]);
+}
+async function faylPaylas(blob, ad) {                                      // telefonda «Paylaş» (WhatsApp, Fayllar …); olmasa — yüklə
+  const f = new File([blob], ad, {type: blob.type});
+  if (navigator.canShare && navigator.canShare({files: [f]})) {
+    try { await navigator.share({files: [f], title: ad}); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const a = el('a', {href: URL.createObjectURL(blob), download: ad}); document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+  toast('Fayl hazırdır: ' + ad, 3);
+}
+const faylAdi = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ə/g, 'e').replace(/Ə/g, 'E').replace(/ı/g, 'i').replace(/[^\w.-]+/g, '_').slice(0, 60) + '_' + bugun() + '.xlsx';
+function qaliqExcel(l, f) {
+  const a = $('#qAnbar').selectedOptions[0], an = a ? a.text : '';
+  const bas = ['Mal', 'Stok kodu', 'Vahid', 'Qalıq', 'Barkod'];
+  faylPaylas(xlsxYaz(anbarQisa(an) + ' ' + QF[f], bas, l.map(({m, q, bar}) => [m.a, m.k, m.v || '', +q, bar ? 'var' : 'yox']), [44, 16, 10, 12, 10]),
+    faylAdi(`Qaliq_${anbarQisa(an)}_${f}`));
+}
+async function hereketExcel(p, ad, btn) {                                  // bütün səhifələr (ən çox 5000 sətir)
+  if (btn) btn.disabled = true;
+  try {
+    const rows = []; let ev = null;
+    do {
+      const r = await api('api_mobil_hereket', tok(), Object.assign({}, p, {limit: 300}, ev ? {evvel: ev} : {}));
+      rows.push(...r.rows);
+      ev = r.devam && rows.length < 5000 ? [r.rows[r.rows.length - 1][1], r.rows[r.rows.length - 1][0]] : null;
+      if (btn) btn.textContent = `Hazırlanır… ${rows.length}`;
+    } while (ev);
+    const bas = ['Tarix', 'Anbar', 'Növ', 'Sənəd №', 'Kontragent', 'Mal', 'Stok kodu', 'Vahid', 'Gəlir', 'Çıxır', 'Təyinat', 'Şərh', 'UyumSoft (H)'];
+    await faylPaylas(xlsxYaz(ad, bas, rows.slice(0, 5000).map(x => [tarixAz(x[1]), x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9] == null ? '' : +x[9], x[10] == null ? '' : +x[10], x[11], x[12], x[13]]),
+      [11, 22, 12, 14, 22, 40, 14, 8, 9, 9, 22, 22, 10]), faylAdi(ad));
+  } catch (e) { toast(e.message, 5); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '⬇ Excel'; } }
+}
+
+// ---------------------------------------------------------------- UyumSoft gözləyənlər (admin; Telegram-dakı «Təsdiq gözləyənlər», proqramda Ctrl+Shift+B)
+function uyumForm() {
+  if (!S.db) { toast('Əvvəlcə mərkəzə qoşulub daxil olun (Ayarlar)', 3.5); return; }
+  const anb = el('select', null, el('option', {value: '', text: 'Bütün anbarlar'}), S.db.anbarlar.map(a => el('option', {value: a, text: a})));
+  const sec = new Set(), siy = el('div', {class: 'siy her'}), bas = el('div', {class: 'cemh'}), dav = el('div', {class: 'row'});
+  const btn = el('button', {class: 'b esas', type: 'button', disabled: true}), exc = el('button', {class: 'b', type: 'button', text: '⬇ Excel'});
+  let son = null;
+  const say1 = () => { btn.textContent = `Seçilənlər UyumSoft-da işlənib (${sec.size})`; btn.disabled = !sec.size; };
+  const setir = x => {
+    const g = +x[9] || 0, c = +x[10] || 0, b = el('button', {type: 'button'});
+    const ciz = () => b.replaceChildren(el('span', {class: 'qutu', text: sec.has(x[0]) ? '☑' : '☐'}),
+      el('span', null, el('div', {text: [tarixAz(x[1]) || 'tarixsiz', anbarQisa(x[2]), x[3], x[4]].filter(Boolean).join(' · ')}), el('div', {text: x[6]}),
+        [x[5], x[11]].some(Boolean) ? el('div', {class: 'alt', text: [x[5], x[11]].filter(Boolean).join(' · ')}) : null),
+      el('b', {class: g ? 'gir' : 'cix', text: (g ? '+' + say(g) : '−' + say(c)) + (x[8] ? ' ' + x[8] : '')}));
+    b.addEventListener('click', () => { if (sec.has(x[0])) sec.delete(x[0]); else sec.add(x[0]); b.classList.toggle('secili', sec.has(x[0])); ciz(); say1(); });
+    ciz(); return b;
+  };
+  const p = () => ({h: 'Xeyr', anbar: anb.value, limit: 100});
+  const yukle = async davam => {
+    if (!davam) { siy.replaceChildren(); sec.clear(); say1(); bas.textContent = 'Yüklənir…'; dav.replaceChildren(); }
+    try {
+      const r = await api('api_mobil_hereket', tok(), Object.assign(p(), davam && son ? {evvel: [son[1], son[0]]} : {}));
+      if (r.rows.length) son = r.rows[r.rows.length - 1];
+      bas.textContent = r.cem.n ? `${r.cem.n} sətir UyumSoft-da işlənməyib (H ≠ Bəli). Toxunub seçin.` : 'Hamısı işlənib ✔';
+      siy.append(...r.rows.map(setir));
+      dav.replaceChildren(...(r.devam ? [el('button', {class: 'b', type: 'button', text: 'Daha çox', onclick: () => yukle(true)})] : []));
+    } catch (e) { bas.replaceChildren(el('div', {class: 'xeta', text: e.message})); }
+  };
+  btn.addEventListener('click', async () => {
+    const rows = [...sec];
+    if (!await sorus(`${rows.length} sətir «UyumSoft-da işlənib» (H = Bəli) edilsin?\n\nProqramdakı Ctrl+Shift+B ilə eynidir.`, 'Bəli et', 'Ləğv')) return;
+    btn.disabled = true;
+    try {
+      const r = await api('api_submit', tok(), yeniUuid(), 'sq_rows', {rows, yeni: 'Bəli', menbe: 'Telefon', sebeb: 'Telefondan: UyumSoft-da işlənib'}, new Date().toISOString());
+      const x = (r && r.result) || {};
+      if (!x.ok) { toast(String(x.msg || 'Alınmadı').replace(/^XETA\|/, ''), 5); say1(); return; }
+      toast(`${x.n} sətir işlənib (Bəli) edildi`, 3); yukle(false);
+    } catch (e) { toast(e.message, 5); say1(); }
+  });
+  exc.addEventListener('click', () => hereketExcel(Object.assign(p(), {limit: 300}), 'UyumSoft_gozleyenler', exc));
+  anb.addEventListener('change', () => yukle(false));
+  pdAc(el('div', null, el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'UyumSoft gözləyənlər'}), el('label', {class: 'sahe'}, 'Anbar', anb), bas,
+    el('div', {class: 'row'}, exc), siy, dav), el('div', {class: 'row'}, btn)));
+  say1(); yukle(false);
 }
 
 const EMSAL_AD = 'Bir skan neçə vahid sayılsın? (qutudursa — içindəki say)';
@@ -1362,6 +1485,7 @@ $('#fKod').addEventListener('submit', e => { e.preventDefault(); const b = $('#i
 $('#iAxtar').addEventListener('input', axtarCiz);
 $('#iQaliq').addEventListener('input', qaliqCiz);
 $('#bHereket').addEventListener('click', hereketForm);
+$('#bUyum').addEventListener('click', uyumForm);
 $('#qAnbar').addEventListener('change', () => { S.ayar.qAnbar = S.db.anbarlar[+$('#qAnbar').value]; saxla('ayar'); qaliqCiz(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && K.aktiv) kamBagla();
