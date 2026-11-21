@@ -56,7 +56,8 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 .sorgu { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; } .sorgu > div, .sorgu > form { background: var(--kart); border-radius: 16px; padding: 18px; width: 100%; max-width: 420px; white-space: pre-wrap; }
 .sr.yeni { background: rgba(42, 148, 125, .16); border-radius: 8px; }
 .basliq { display: flex; align-items: baseline; gap: 14px; } .basliq h3 { flex: 1; }
-.siy .nis { white-space: normal; max-width: 100%; }                          /* uzun vəziyyət («Təsdiq edildi və icra olundu») dar ekranda sətrə bölünür */
+.siy .nis { white-space: normal; max-width: 100%; }
+.yoxla .sr b { width: 22px; flex: none; } .yoxla .sr span { flex: none; width: 42%; } .yoxla .sr i { flex: 1; font-style: normal; color: var(--boz); overflow-wrap: anywhere; }                          /* uzun vəziyyət («Təsdiq edildi və icra olundu») dar ekranda sətrə bölünür */
 .siy > button.secili { background: rgba(42, 148, 125, .16); } .qutu { font-size: 22px; line-height: 1; color: var(--y); flex: none; }
 .mq { width: 40px; height: 40px; border-radius: 20px; border: 1px solid var(--xett); background: var(--kart); color: var(--mt); font-size: 20px; line-height: 1; flex: none; }
 .mqs { border: 0; background: none; color: var(--mt); font: inherit; font-weight: 650; font-variant-numeric: tabular-nums; min-width: 62px; text-align: center; flex: none; padding: 8px 2px; }
@@ -98,7 +99,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.1 · 21.11.2026';
+const SURUM = '0.3.2 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
@@ -184,8 +185,9 @@ async function api(fn, ...args) {
   try {
     r = await fetch(url, {method: 'POST', body: JSON.stringify(sorgu),
       headers: {'Content-Type': 'application/json', 'Neon-Connection-String': cs, 'Neon-Raw-Text-Output': 'true', 'Neon-Array-Mode': 'true'}});
-  } catch (e) { throw new ApiXeta('OFFLINE', 'Mərkəzə qoşulmaq olmadı — internet yoxdur?'); }
+  } catch (e) { throw new ApiXeta('OFFLINE', `Mərkəzə qoşulmaq olmadı — internet yoxdur və ya şəbəkə mərkəzi bağlayır (${(e && e.message) || e}).`); }
   try { j = await r.json(); } catch (e) { j = {}; }
+  if (!r.ok && api.yoxlama) throw new ApiXeta(j.hint || 'HTTP' + r.status, j.message || `Mərkəz cavab vermədi (${r.status})`);   // yoxlama: hesabdan çıxarmır
   if (!r.ok) {
     if (j.hint === 'AUTH' && S.giris) { S.giris = null; saxla('giris'); durumYaz(); }
     throw new ApiXeta(j.hint || 'HTTP' + r.status, j.message || `Mərkəz cavab vermədi (${r.status})`);
@@ -196,6 +198,35 @@ async function api(fn, ...args) {
   return v;
 }
 const tok = () => S.giris && S.giris.tok;
+async function baglantiYoxla(yer) {                                       // «Bağlantını yoxla»: problem harada — şəkli çəkilib adminə göndərilə bilər
+  const l = [], ua = navigator.userAgent;
+  const cihaz = (/iPhone|iPad/.test(ua) ? 'iPhone/iPad, iOS ' + ((ua.match(/OS (\d+[_\d]*)/) || [])[1] || '?').replace(/_/g, '.') :
+    /Android/.test(ua) ? 'Android ' + ((ua.match(/Android ([\d.]+)/) || [])[1] || '?') : 'kompüter') +
+    ' · ' + (/CriOS|Chrome/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : /Firefox|FxiOS/.test(ua) ? 'Firefox' : 'brauzer') +
+    (navigator.standalone || matchMedia('(display-mode: standalone)').matches ? ' · ana ekrandan' : ' · brauzerdə');
+  l.push(['ℹ', 'Proqram', 'Anbar Mobil ' + SURUM], ['ℹ', 'Telefon', cihaz]);
+  yer.replaceChildren(el('div', {class: 'qeyd', text: 'Yoxlanır…'}));
+  let net = false;
+  try { net = (await fetch('./manifest.webmanifest?y=' + Date.now(), {cache: 'no-store'})).ok; } catch (e) {}
+  l.push([net ? '✔' : '✘', 'İnternet', net ? 'var' : 'yoxdur']);
+  l.push([S.qos ? '✔' : '✘', 'Mərkəzə qoşulma (QR)', S.qos ? 'var · ' + S.qos.n : 'yoxdur']);
+  let merkez = null;
+  if (S.qos && net) {
+    const t0 = Date.now();
+    api.yoxlama = true;
+    try { await api('api_me', 'x'.repeat(64)); merkez = 'cavab verir'; }
+    catch (e) { merkez = e.kod === 'AUTH' ? `cavab verir (${Date.now() - t0} ms)` : null; if (!merkez) l.push(['✘', 'Mərkəz', e.message]); }
+    finally { api.yoxlama = false; }
+    if (merkez) l.push(['✔', 'Mərkəz', merkez]);
+  }
+  l.push([S.giris ? '✔' : '•', 'Giriş', S.giris ? S.giris.me.login + ' (' + (ROL[S.giris.me.role] || S.giris.me.role) + ')' : 'daxil olunmayıb']);
+  const meslehet = !net ? 'İnternet yoxdur — Wi-Fi və ya mobil interneti yoxlayın.'
+    : !S.qos ? 'Telefon hələ mərkəzə qoşulmayıb. Kompüterdəki proqramda Hesab → «📱 Telefonu qoş» → buradakı «QR kodu skan et» ilə oxudun. Uzaqdasınızsa: admin həmin pəncərədə «Kodu kopyala» basıb sizə WhatsApp ilə göndərsin — linkə toxunun.'
+    : !merkez ? 'İnternet var, amma mərkəzə çatmaq olmur. Wi-Fi-dan mobil internetə (və ya əksinə) keçib yenidən yoxlayın. Düzəlməsə — bu ekranın şəklini adminə göndərin.'
+    : !S.giris ? 'Bağlantı qaydasındadır — «Daxil ol» basıb istifadəçi adınız və parolunuzla daxil olun.' : 'Hər şey qaydasındadır.';
+  yer.replaceChildren(el('div', {class: 'kart yoxla'}, l.map(x => el('div', {class: 'sr'}, el('b', {class: x[0] === '✘' ? 'qr' : '', text: x[0]}), el('span', {text: x[1]}), el('i', {text: x[2]}))),
+    el('div', {class: 'qeyd', text: meslehet})));
+}
 function yeniUuid() {
   if (crypto.randomUUID) return crypto.randomUUID();
   const b = crypto.getRandomValues(new Uint8Array(16)); b[6] = b[6] & 15 | 64; b[8] = b[8] & 63 | 128;
@@ -236,13 +267,14 @@ function girisForm(mesaj) {
       pdBagla(); toast('Xoş gəldiniz, ' + (r.me.full_name || r.me.login), 2.5);
       if (r.me.must_change_pw) setTimeout(() => toast('Parolunuz müvəqqətidir — kompüterdəki proqramda dəyişin', 5), 2600);
       ciz(); yenile(true);
-    } catch (e) { xeta.textContent = e.message; } finally { btn.disabled = false; }
+    } catch (e) { xeta.textContent = e.message; yox.hidden = false; } finally { btn.disabled = false; }
   };
+  const yer = el('div'), yox = el('button', {class: 'lnk', type: 'button', text: 'Bağlantını yoxla', hidden: !mesaj, onclick: () => baglantiYoxla(yer)});
   pdAc(el('form', {onsubmit: e => { e.preventDefault(); gir(); }},
     el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Daxil olun'}), el('div', {class: 'alt', text: S.qos.n}),
       el('div', {class: 'qeyd', text: 'Kompüterdəki proqramın istifadəçi adı və parolu ilə.'}),
-      el('label', {class: 'sahe'}, 'İstifadəçi adı', lg), el('label', {class: 'sahe'}, 'Parol', pw), xeta),
-    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Ləğv', onclick: pdBagla}), btn)));
+      el('label', {class: 'sahe'}, 'İstifadəçi adı', lg), el('label', {class: 'sahe'}, 'Parol', pw), xeta, yox),
+    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Ləğv', onclick: pdBagla}), btn), yer));
   setTimeout(() => (lg.value ? pw : lg).focus(), 50);
 }
 async function cixis() {
@@ -932,6 +964,7 @@ function ayarCiz() {
   const merkez = !S.qos ? el('div', {class: 'kart'},
       el('div', {class: 'ad', text: 'Telefonu mərkəzə qoşun'}),
       el('div', {class: 'qeyd', text: 'Kompüterdəki proqramda: Hesab → «📱 Telefonu qoş». Ekranda çıxan QR kodu bu proqramın «Skan» bölməsində kamera ilə oxudun. Bu, bir dəfəlikdir.'}),
+      el('div', {class: 'qeyd', text: 'Kompüterdən uzaqdasınızsa: admin həmin pəncərədə «Kodu kopyala» basıb sizə WhatsApp ilə göndərsin — linkə toxunun və ya onu aşağıya yapışdırın.'}),
       el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'QR kodu skan et', onclick: () => { gorunus('skan'); if (!K.aktiv) kamAc(); }})),
       el('label', {class: 'sahe'}, 'Və ya qoşulma kodunu yapışdırın', kodYaz),
       el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Qoşul', onclick: () => { const q = qosOxu(kodYaz.value); if (q) qosQebul(q); else toast('Kod tanınmadı', 3); }})))
@@ -949,8 +982,10 @@ function ayarCiz() {
   const gm = el('input', {value: a.gmodel, placeholder: 'gemini-2.5-flash', autocomplete: 'off', autocapitalize: 'off'});
   gm.addEventListener('change', () => { a.gmodel = gm.value.trim(); saxla('ayar'); });
   const gq = el('div', {class: 'qeyd'}), sq = el('div', {class: 'qeyd', text: S.detAd ? 'Oxuyucu: ' + S.detAd : ''});
+  const yoxYer = el('div');
   v.replaceChildren(
     el('h3', {text: 'Mərkəz'}), merkez,
+    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Bağlantını yoxla', onclick: () => baglantiYoxla(yoxYer)})), yoxYer,
     ...(g ? [el('h3', {text: 'Əsas anbar'}),
       el('div', {class: 'kart'}, el('label', {class: 'sahe'}, 'Sənəd yazanda susmaya görə', anb), el('div', {class: 'qeyd', text: 'Cihaz kodu: ' + a.cihaz}))] : []),
     el('h3', {text: 'AI izah (Gemini)'}),
@@ -1005,6 +1040,10 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('online', () => { durumYaz(); yenile(true); }); window.addEventListener('offline', durumYaz);
 $('#durum').addEventListener('click', () => S.giris ? yenile() : gorunus('ayar'));
+window.addEventListener('hashchange', () => {                             // proqram açıq ikən qoşulma linkinə toxunulub (WhatsApp və s.)
+  const q = qosOxu(location.hash);
+  if (q) { history.replaceState(null, '', location.pathname + location.search); qosQebul(q); }
+});
 setInterval(() => { if (!document.hidden && navigator.onLine !== false) yenile(true); }, 180000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 (async () => {
