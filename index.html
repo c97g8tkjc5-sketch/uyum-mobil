@@ -117,7 +117,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.12 · 21.11.2026';
+const SURUM = '0.3.13 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Çıxış'};
@@ -170,7 +170,7 @@ const KV = (() => {
 // ---------------------------------------------------------------- vəziyyət
 const S = {db: null, ix: new Map(), bark: {}, barkE: {}, barkYeni: [], sened: [], kassa: null, sonSetir: '', det: null, detAd: '',
   qos: null, giris: null, srv: [], yenilenir: false, gonderilir: false, sonYenileme: 0,
-  ayar: {cihaz: '', ad: '', anbar: '', gkey: '', gmodel: 'gemini-2.5-flash', sayac: 0}};
+  ayar: {cihaz: '', ad: '', anbar: '', gkey: '', gmodel: '', sayac: 0}};
 const saxla = k => KV.set(k, S[k]);
 
 const pad = n => String(n).padStart(2, '0');
@@ -355,6 +355,7 @@ async function yukle() {
   const [db, bark, barkE, barkYeni, sened, ayar, kassa, qos, giris, srv] = await Promise.all(ac.map(k => KV.get(k)));
   if (bark) S.bark = bark; if (barkE) S.barkE = barkE; if (barkYeni) S.barkYeni = barkYeni; if (sened) S.sened = sened; if (ayar) Object.assign(S.ayar, ayar); if (kassa) S.kassa = kassa;
   if (qos) S.qos = qos; if (giris) S.giris = giris; if (srv) S.srv = srv;
+  if (!(ayar && ayar.gSur)) { S.ayar.gmodel = ''; S.ayar.gSur = 1; await saxla('ayar'); }   // 21.11: əvvəl seçilmiş (gec) model sıfırlanır — ən sürətlisi seçilsin
   if (!S.ayar.cihaz) { S.ayar.cihaz = 'T' + Array.from({length: 4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join(''); await saxla('ayar'); }
   if (db && db.yazilan) dbQur(db);                                      // köhnə məhsul faylı (yazilan yoxdur) işlədilmir — məlumat mərkəzdən gəlir
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
@@ -939,10 +940,10 @@ async function geminiModeller(acar) {
   return (j.models || []).filter(x => (x.supportedGenerationMethods || []).includes('generateContent')).map(x => String(x.name).replace(/^models\//, ''))
     .filter(n => /^gemini-/.test(n) && !/(image|tts|audio|live|embedding|robotics|computer|learnlm|exp|preview)/.test(n));
 }
-function modelSirasi(l) {                                             // üstünlük: flash → flash-lite → qalanı; hər qrupda ən yenisi əvvəl
+function modelSirasi(l) {                                             // üstünlük: flash-lite (ən sürətli, 21.11 istifadəçi: «çox gec») → flash → qalanı; hər qrupda ən yenisi əvvəl
   const yeni = a => a.slice().sort((x, y) => y.localeCompare(x, 'en', {numeric: true}));
   const f = l.filter(n => /flash/.test(n) && !/lite/.test(n)), fl = l.filter(n => /flash/.test(n) && /lite/.test(n));
-  return [...yeni(f), ...yeni(fl), ...yeni(l.filter(n => !/flash/.test(n)))];
+  return [...yeni(fl), ...yeni(f), ...yeni(l.filter(n => !/flash/.test(n)))];
 }
 function enYaxsiModel(l) { return modelSirasi(l)[0] || ''; }
 // Limiti bitən model (pulsuz planda «limit: 0» — heç işləmir, və ya günlük/dəqiqəlik limit) Google-un dediyi vaxta qədər buraxılır
@@ -982,7 +983,7 @@ async function geminiSor(metn, _kohne, axtaris) {                        // axta
   };
   let model = S.ayar.gmodel && !gBloklu(S.ayar.gmodel) ? S.ayar.gmodel : await novbeti();
   for (let n = 0; model && n < 7; n++) {
-    const govde = {contents: [{parts: [{text: metn}]}], generationConfig: {temperature: 0.3}};
+    const govde = {contents: [{parts: [{text: metn}]}], generationConfig: {temperature: 0.3, maxOutputTokens: 400}};   // qısa cavab — daha tez
     if (axtaris) govde.tools = [{google_search: {}}];
     if (/flash/.test(model) && !gDusunmez[model]) govde.generationConfig.thinkingConfig = {thinkingBudget: 0};   // qısa cavab üçün «düşünmə» lazım deyil — 3–5 dəfə tez
     const ac = new AbortController(), tm = setTimeout(() => ac.abort(), Math.max(1000, bitme - Date.now()));
@@ -1396,7 +1397,7 @@ function ayarCiz() {
   anb.addEventListener('change', () => { a.anbar = anb.value; saxla('ayar'); });
   const gk = el('input', {type: 'password', value: a.gkey, placeholder: 'Gemini API açarı', autocomplete: 'off'});
   gk.addEventListener('change', () => { a.gkey = gk.value.trim(); saxla('ayar'); });
-  const gm = el('input', {value: a.gmodel, placeholder: 'gemini-2.5-flash', autocomplete: 'off', autocapitalize: 'off'});
+  const gm = el('input', {value: a.gmodel, placeholder: 'gemini-2.5-flash-lite', autocomplete: 'off', autocapitalize: 'off'});
   gm.addEventListener('change', () => { a.gmodel = gm.value.trim(); saxla('ayar'); });
   const gq = el('div', {class: 'qeyd'}), sq = el('div', {class: 'qeyd', text: S.detAd ? 'Oxuyucu: ' + S.detAd : ''});
   const yoxYer = el('div');
