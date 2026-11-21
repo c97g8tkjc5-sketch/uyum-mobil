@@ -6,12 +6,12 @@
 <meta name="theme-color" content="#0f5c4c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Uyum Mobil">
+<meta name="apple-mobile-web-app-title" content="Anbar Mobil">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Uyum Mobil</title>
+<title>Anbar Mobil</title>
 <style>
 :root { --y: #0f5c4c; --y2: #a8491f; --fon: #f3f5f4; --kart: #ffffff; --mt: #1b2320; --boz: #66726d; --xett: #dbe2de; --qr: #b3261e; --sari: #8a5a00; }
 @media (prefers-color-scheme: dark) { :root { --y: #2a947d; --y2: #cf7647; --fon: #111514; --kart: #1b211f; --mt: #e7edea; --boz: #98a49f; --xett: #2b3430; --qr: #ef8c84; --sari: #e0b860; } }
@@ -58,10 +58,12 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 .mq { width: 40px; height: 40px; border-radius: 20px; border: 1px solid var(--xett); background: var(--kart); color: var(--mt); font-size: 20px; line-height: 1; flex: none; }
 .mqs { border: 0; background: none; color: var(--mt); font: inherit; font-weight: 650; font-variant-numeric: tabular-nums; min-width: 62px; text-align: center; flex: none; padding: 8px 2px; }
 .qr { color: var(--qr); }
+.nis.ok { background: #1f8a4c; color: #fff; } .nis.gz { background: var(--sari); color: #fff; } .nis.qy { background: var(--y2); color: #fff; } .nis.xt { background: var(--qr); color: #fff; }
+textarea { min-height: 70px; resize: vertical; }
 </style>
 </head>
 <body>
-<header><b>Uyum Mobil</b><div id="durum">Yüklənir…</div></header>
+<header><b>Anbar Mobil</b><div id="durum" role="button" tabindex="0">Yüklənir…</div></header>
 <main>
   <section id="v-skan" class="v sec">
     <div id="kam"><video id="vid" playsinline muted></video><div class="cerceve"></div><div id="kamMesaj">Kamera bağlıdır</div></div>
@@ -93,7 +95,7 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.2 · 13.11.2026';
+const SURUM = '0.3 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
@@ -140,6 +142,7 @@ const KV = (() => {
 
 // ---------------------------------------------------------------- vəziyyət
 const S = {db: null, ix: new Map(), bark: {}, barkE: {}, barkYeni: [], sened: [], kassa: null, sonSetir: '', det: null, detAd: '',
+  qos: null, giris: null, srv: [], yenilenir: false, gonderilir: false, sonYenileme: 0,
   ayar: {cihaz: '', ad: '', anbar: '', gkey: '', gmodel: 'gemini-2.5-flash', sayac: 0}};
 const saxla = k => KV.set(k, S[k]);
 
@@ -163,43 +166,144 @@ function sorus(metn, beli, xeyr) {
   });
 }
 
+// ---------------------------------------------------------------- mərkəz: Neon-un HTTPS yolu (proqramın qoşulması) + istifadəçinin girişi (token)
+const QOS = 'qos=';
+const ROL = {admin: 'administrator', anbardar: 'anbardar', baxis: 'baxış'};
+class ApiXeta extends Error { constructor(kod, m) { super(m); this.kod = kod; } }
+async function api(fn, ...args) {
+  const q = S.qos;
+  if (!q) throw new ApiXeta('QOS', 'Telefon mərkəzə qoşulmayıb (Ayarlar).');
+  const url = (/^(localhost|127\.0\.0\.1)(:|$)/.test(q.h) ? 'http://' : 'https://') + q.h + '/sql';
+  const cs = `postgresql://${encodeURIComponent(q.u)}:${encodeURIComponent(q.p)}@${q.h.split(':')[0]}/${encodeURIComponent(q.d)}?sslmode=require`;
+  const sorgu = {query: `SELECT anbar.${fn}(${args.map((_, i) => '$' + (i + 1)).join(',')}) AS r`,
+    params: args.map(a => a == null ? null : typeof a === 'object' ? JSON.stringify(a) : String(a))};
+  let r, j;
+  try {
+    r = await fetch(url, {method: 'POST', body: JSON.stringify(sorgu),
+      headers: {'Content-Type': 'application/json', 'Neon-Connection-String': cs, 'Neon-Raw-Text-Output': 'true', 'Neon-Array-Mode': 'true'}});
+  } catch (e) { throw new ApiXeta('OFFLINE', 'Mərkəzə qoşulmaq olmadı — internet yoxdur?'); }
+  try { j = await r.json(); } catch (e) { j = {}; }
+  if (!r.ok) {
+    if (j.hint === 'AUTH' && S.giris) { S.giris = null; saxla('giris'); durumYaz(); }
+    throw new ApiXeta(j.hint || 'HTTP' + r.status, j.message || `Mərkəz cavab vermədi (${r.status})`);
+  }
+  const row = j.rows && j.rows[0], raw = Array.isArray(row) ? row[0] : row && row.r;
+  const v = raw == null ? null : typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (v && typeof v === 'object' && !Array.isArray(v) && v.error && v.message) throw new ApiXeta(v.error, v.message);
+  return v;
+}
+const tok = () => S.giris && S.giris.tok;
+function yeniUuid() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16)); b[6] = b[6] & 15 | 64; b[8] = b[8] & 63 | 128;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+function qosOxu(metn) {                                                   // QR / keçid: …#qos=<base64url JSON {h, d, u, p, n}>
+  const t = String(metn || ''), i = t.indexOf(QOS);
+  if (i < 0) return null;
+  try {
+    let b = t.slice(i + QOS.length).trim().split(/[&\s]/)[0].replace(/-/g, '+').replace(/_/g, '/');
+    b += '='.repeat((4 - b.length % 4) % 4);
+    const q = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), c => c.charCodeAt(0))));
+    return q && q.h && q.d && q.u && q.p ? {h: q.h, d: q.d, u: q.u, p: q.p, n: q.n || 'Mərkəzi baza'} : null;
+  } catch (e) { return null; }
+}
+async function qosQebul(q) {
+  S.qos = q; await saxla('qos'); ciz();
+  toast('Telefon mərkəzə qoşuldu — indi daxil olun', 3);
+  girisForm();
+}
+async function qosSil() {
+  if (!await sorus('Telefonun mərkəzlə əlaqəsi silinsin? Yenidən qoşulmaq üçün proqramdakı QR kod lazım olacaq.', 'Sil', 'Ləğv')) return;
+  S.qos = null; S.giris = null; S.db = null; S.ix = new Map();
+  await saxla('qos'); await saxla('giris'); await KV.set('db', null); ciz();
+}
+function girisForm(mesaj) {
+  if (!S.qos) { gorunus('ayar'); toast('Əvvəlcə telefonu mərkəzə qoşun (Ayarlar)', 4); return; }
+  const lg = el('input', {placeholder: 'İstifadəçi adı', autocomplete: 'username', autocapitalize: 'off', value: S.ayar.login || ''});
+  const pw = el('input', {type: 'password', placeholder: 'Parol', autocomplete: 'current-password'});
+  const xeta = el('div', {class: 'xeta', text: mesaj || ''}), btn = el('button', {class: 'b esas', text: 'Daxil ol'});
+  const gir = async () => {
+    xeta.textContent = ''; btn.disabled = true;
+    try {
+      const r = await api('api_login', lg.value.trim().toLowerCase(), pw.value, 'Telefon ' + S.ayar.cihaz);
+      S.giris = {tok: r.token, me: r.me}; S.ayar.login = r.me.login;
+      await saxla('giris'); await saxla('ayar');
+      pdBagla(); toast('Xoş gəldiniz, ' + (r.me.full_name || r.me.login), 2.5);
+      if (r.me.must_change_pw) setTimeout(() => toast('Parolunuz müvəqqətidir — kompüterdəki proqramda dəyişin', 5), 2600);
+      ciz(); yenile(true);
+    } catch (e) { xeta.textContent = e.message; } finally { btn.disabled = false; }
+  };
+  pdAc(el('form', {onsubmit: e => { e.preventDefault(); gir(); }},
+    el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Daxil olun'}), el('div', {class: 'alt', text: S.qos.n}),
+      el('div', {class: 'qeyd', text: 'Kompüterdəki proqramın istifadəçi adı və parolu ilə.'}),
+      el('label', {class: 'sahe'}, 'İstifadəçi adı', lg), el('label', {class: 'sahe'}, 'Parol', pw), xeta),
+    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Ləğv', onclick: pdBagla}), btn)));
+  setTimeout(() => (lg.value ? pw : lg).focus(), 50);
+}
+async function cixis() {
+  if (!await sorus('Hesabdan çıxılsın? Göndərilməmiş sənədlər telefonda qalır.', 'Çıx', 'Ləğv')) return;
+  const t = tok(); S.giris = null; await saxla('giris');
+  if (t) api('api_logout', t).catch(() => {});
+  ciz();
+}
+
 // ---------------------------------------------------------------- məlumat
 async function yukle() {
-  const [db, bark, barkE, barkYeni, sened, ayar, kassa] = await Promise.all(['db', 'bark', 'barkE', 'barkYeni', 'sened', 'ayar', 'kassa'].map(k => KV.get(k)));
+  const ac = ['db', 'bark', 'barkE', 'barkYeni', 'sened', 'ayar', 'kassa', 'qos', 'giris', 'srv'];
+  const [db, bark, barkE, barkYeni, sened, ayar, kassa, qos, giris, srv] = await Promise.all(ac.map(k => KV.get(k)));
   if (bark) S.bark = bark; if (barkE) S.barkE = barkE; if (barkYeni) S.barkYeni = barkYeni; if (sened) S.sened = sened; if (ayar) Object.assign(S.ayar, ayar); if (kassa) S.kassa = kassa;
+  if (qos) S.qos = qos; if (giris) S.giris = giris; if (srv) S.srv = srv;
   if (!S.ayar.cihaz) { S.ayar.cihaz = 'T' + Array.from({length: 4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join(''); await saxla('ayar'); }
-  if (db) dbQur(db);
+  if (db && db.yazilan) dbQur(db);                                      // köhnə məhsul faylı (yazilan yoxdur) işlədilmir — məlumat mərkəzdən gəlir
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-}
-function dbYoxla(d) {
-  if (!d || d.v !== 1 || !Array.isArray(d.mallar) || !Array.isArray(d.anbarlar)) throw new Error('Bu, Uyum Mobil məhsul faylı deyil.');
-  for (const m of d.mallar) if (!m || typeof m.k !== 'string' || typeof m.a !== 'string') throw new Error('Fayldakı mal siyahısı zədəlidir.');
-  return d;
 }
 function dbQur(db) {
   S.db = db; S.ix = new Map();
   for (const m of db.mallar) { m._n = norm(m.a + ' ' + (m.s || []).join(' ')); S.ix.set(m.k.toLowerCase(), m); }
   const doldur = (id, l) => $(id).replaceChildren(...(l || []).map(x => el('option', {value: x})));
   doldur('#dlTey', db.teyinatlar); doldur('#dlKont', db.kontragentler);
-  for (const b in S.bark) if (db.barkodlar && db.barkodlar[b]) { delete S.bark[b]; delete S.barkE[b]; }        // Excel artıq bilir
+  for (const b in S.bark) if (db.barkodlar && db.barkodlar[b] === S.bark[b] && !S.barkYeni.some(x => x.b === b)) { delete S.bark[b]; delete S.barkE[b]; }   // mərkəz artıq bilir
   durumYaz();
 }
-async function dbYaz(metn) {
-  const d = dbYoxla(JSON.parse(metn));
-  await KV.set('db', d); dbQur(d); saxla('bark'); saxla('barkE');
-  toast(`Yükləndi: ${d.mallar.length} mal · ${vaxtQisa(d.vaxt)}`, 3.5);
-  ciz();
+function srvQur(l) {                                                      // mərkəzdəki vəziyyət → telefondakı sənədlər
+  S.srv = l || []; saxla('srv');
+  const m = new Map(S.srv.map(x => [x.no, x]));
+  for (const d of S.sened) {
+    const x = d.no && m.get(d.no);
+    if (x && d.status === 'GON') Object.assign(d, {st: x.st, serh: x.serh, icra: x.icra, ver: x.ver});
+  }
+  const hedd = new Date(Date.now() - 60 * 864e5).toISOString().slice(0, 10);       // 60 gündən köhnə göndərilmişlər telefondan silinir
+  S.sened = S.sened.filter(d => d.status !== 'GON' || (d.gonderildi || d.yaradildi || '') >= hedd);
+  saxla('sened');
+}
+async function yenile(sakit) {                                            // mərkəzdən: mal, qalıq, barkod, sənədlərin vəziyyəti; əvvəl göndərilməmişlər
+  if (!S.giris || S.yenilenir) return;
+  S.yenilenir = true; durumYaz();
+  try {
+    await gonder(true);
+    if (!S.giris) return;
+    const [d, srv] = await Promise.all([api('api_mobil_pull', tok()), api('api_mobil_senedler', tok())]);
+    await KV.set('db', d); dbQur(d); srvQur(srv); S.sonYenileme = Date.now();
+    if (!sakit) toast(`Yeniləndi: ${d.mallar.length} mal`, 1.8);
+  } catch (e) {
+    if (e.kod === 'AUTH') girisForm('Sessiya bitib — yenidən daxil olun.');
+    else if (!sakit) toast(e.message, 4);
+  } finally { S.yenilenir = false; ciz(); }
 }
 function durumYaz() {
   const d = S.db;
-  $('#durum').textContent = (d ? `Qalıq: ${vaxtQisa(d.vaxt)} · ${d.mallar.length} mal` : 'Qalıq faylı yüklənməyib') + (navigator.onLine === false ? ' · oflayn' : '');
+  $('#durum').textContent = (!S.qos ? 'Mərkəzə qoşulmayıb — Ayarlar' : !S.giris ? 'Daxil olun — Ayarlar' : d ? `Qalıq: ${vaxtQisa(d.vaxt)} · ${d.mallar.length} mal` : 'Yüklənir…')
+    + (S.yenilenir ? ' · yenilənir…' : '') + (navigator.onLine === false ? ' · internet yoxdur' : '');
 }
 
 const cemQ = m => { let s = 0; for (const i in (m.q || {})) s += m.q[i]; return s; };
+const ICRA_BITIB = new Set(['Təsdiq edildi və icra olundu', 'Ləğv edildi']);
 function telFerq(kod) {
   const r = {};
   for (const d of S.sened) {
-    if (S.db && d.yaradildi <= S.db.vaxt) continue;                       // fayldan əvvəl yazılanlar artıq Excel-də ola bilər
+    if (d.status === 'GON' && ICRA_BITIB.has(d.st)) continue;            // icra olunub (qalıq mərkəzdən gəlir) və ya ləğv edilib
     for (const s of d.setir) if (s.k === kod) r[d.anbar] = (r[d.anbar] || 0) + (d.nov === 'MEDAXIL' ? s.m : -s.m);
   }
   return r;
@@ -222,11 +326,11 @@ function axtar(sorgu, hedd) {
 }
 function barkodVariant(b) { const v = [b]; if (/^\d{12}$/.test(b)) v.push('0' + b); if (/^0\d{12}$/.test(b)) v.push(b.slice(1)); return v; }
 function barkodKod(b) {
-  for (const x of barkodVariant(b)) { const k = (S.db && S.db.barkodlar && S.db.barkodlar[x]) || S.bark[x]; if (k) return k; }
+  for (const x of barkodVariant(b)) { const k = S.bark[x] || (S.db && S.db.barkodlar && S.db.barkodlar[x]); if (k) return k; }   // göndərilməmiş yerli bağlama üstündür
   return '';
 }
 function barkodEmsal(b) {                                                 // bir skan neçə vahiddir (qutu barkodu); susmaya görə 1
-  for (const x of barkodVariant(b)) { const e = (S.db && S.db.emsal && S.db.emsal[x]) || S.barkE[x]; if (e > 0) return e; }
+  for (const x of barkodVariant(b)) { if (S.bark[x]) return S.barkE[x] > 0 ? S.barkE[x] : 1; const e = S.db && S.db.emsal && S.db.emsal[x]; if (e > 0) return e; }
   return 1;
 }
 function barkodlari(kod) {
@@ -329,7 +433,8 @@ async function sekildenOxu(fayl) {
   } catch (e) { toast('Şəkil oxunmadı: ' + (e.message || e), 4); }
 }
 function kodAc(b) {
-  if (!S.db) { toast('Əvvəlcə qalıq faylını yükləyin (Ayarlar)', 4); return; }
+  const q = qosOxu(b); if (q) { bip(); return qosQebul(q); }           // proqramın «Telefonu qoş» QR kodu
+  if (!S.db) { toast(S.giris ? 'Mal siyahısı hələ yüklənməyib — bir az gözləyin' : 'Əvvəlcə mərkəzə qoşulub daxil olun (Ayarlar)', 4); return; }
   const m = S.ix.get(b.toLowerCase());                                    // stok kodu əllə yazılıb
   if (m) { bip(); return S.kassa ? kassaElave(m, 1, '') : malKarti(m, ''); }
   const k = barkodKod(b), mb = k && S.ix.get(k.toLowerCase());
@@ -373,11 +478,28 @@ function barkodForm(m) {
 async function bagla(b, m, sorgusuz, emsal) {
   const e = emsal > 0 ? Math.round(emsal * 1000) / 1000 : 1, kohne = barkodKod(b);
   const emMetn = e !== 1 ? `\n\n1 skan = ${say(e)} ${m.v || 'vahid'}` : '';
-  if (kohne && kohne !== m.k) { const km = S.ix.get(kohne.toLowerCase()); if (!await sorus(`Bu barkod artıq başqa mala bağlıdır:\n«${km ? km.a : kohne}»\n\nYeni mala keçirilsin?`, 'Keçir', 'Ləğv')) return; }
+  let evez = false;
+  if (kohne && kohne !== m.k) { const km = S.ix.get(kohne.toLowerCase()); if (!await sorus(`Bu barkod artıq başqa mala bağlıdır:\n«${km ? km.a : kohne}»\n\nYeni mala keçirilsin?`, 'Keçir', 'Ləğv')) return; evez = true; }
   else if (!sorgusuz && !await sorus(`Barkod ${b}\n\n«${m.a}»\nmalına bağlansın?${emMetn}`, 'Bağla', 'Ləğv')) return;
-  S.bark[b] = m.k; if (e !== 1) S.barkE[b] = e; else delete S.barkE[b];
-  S.barkYeni = S.barkYeni.filter(x => x.b !== b); S.barkYeni.push({b, k: m.k, a: m.a, e, t: indi()});
-  saxla('bark'); saxla('barkE'); saxla('barkYeni'); toast('Barkod bağlandı'); nisan();
+  let merkez = false;
+  if (S.giris && navigator.onLine !== false) {
+    try { await api('api_barkod_bagla', tok(), b, m.k, e, 'telefon', evez); merkez = true; }
+    catch (x) {
+      if (x.kod === 'BKDUP') {
+        if (!await sorus(x.message + '\n\nYeni mala keçirilsin?', 'Keçir', 'Ləğv')) return;
+        try { await api('api_barkod_bagla', tok(), b, m.k, e, 'telefon', true); merkez = true; } catch (y) { toast(y.message, 5); return; }
+      } else if (x.kod !== 'OFFLINE') { toast(x.message, 5); return; }
+    }
+  }
+  if (merkez && S.db) {
+    S.db.barkodlar[b] = m.k; if (e !== 1) S.db.emsal[b] = e; else delete S.db.emsal[b];
+    KV.set('db', S.db); delete S.bark[b]; delete S.barkE[b];
+  } else {
+    S.bark[b] = m.k; if (e !== 1) S.barkE[b] = e; else delete S.barkE[b];
+    S.barkYeni = S.barkYeni.filter(x => x.b !== b); S.barkYeni.push({b, k: m.k, a: m.a, e, t: indi(), evez});
+  }
+  saxla('bark'); saxla('barkE'); saxla('barkYeni');
+  toast(merkez ? 'Barkod bağlandı' : 'Barkod bağlandı — internet gələndə mərkəzə yazılacaq', merkez ? 2 : 3.5); nisan();
   if (S.kassa) { pdBagla(); kassaElave(m, e, b); } else malKarti(m, b);
 }
 function oxsar(metn, hedd) {                                              // internetdən gələn ada görə siyahıdan oxşar mallar (uyğun gələn söz sayına görə)
@@ -492,22 +614,25 @@ async function aiGoster(m, b, yer) {
 
 // ---------------------------------------------------------------- sənədlər
 function qaralama(nov, anbar, yarat) {
-  let d = S.sened.find(x => x.status === 'QAR' && x.nov === nov && x.anbar === anbar);
+  let d = S.sened.find(x => x.status === 'QAR' && x.nov === nov && x.anbar === anbar && !x.no);
   if (!d && yarat) {
-    d = {id: 'D' + String(++S.ayar.sayac).padStart(6, '0'), nov, anbar, tarix: bugun(), sened: '', kont: '', aciq: '', yaradildi: indi(), status: 'QAR', n: 0, setir: []};
+    d = {id: 'D' + String(++S.ayar.sayac).padStart(6, '0'), nov, tip: nov === 'MEDAXIL' ? 'Mədaxil' : 'Silinmə', anbar, tarix: bugun(), sened: '', kont: '', aciq: '',
+      yaradildi: indi(), status: 'QAR', n: 0, setir: []};
     S.sened.unshift(d); saxla('ayar');
   }
   return d;
 }
+const yazAnbar = () => (S.db && (S.db.yazilan || S.db.anbarlar)) || [];            // sənəd göndərə bildiyi anbarlar
 function susAnbar(m, nov) {
-  const a = S.db.anbarlar;
+  const a = yazAnbar();
   if (S.ayar.anbar && a.includes(S.ayar.anbar)) return S.ayar.anbar;
-  let en = 0, i0 = 0; for (const i in (m.q || {})) if (m.q[i] > en) { en = m.q[i]; i0 = +i; }        // ən çox qalıq olan anbar; yoxdursa siyahının birincisi
-  return a[i0] || a[0];
+  let en = 0, i0 = -1; for (const i in (m.q || {})) if (m.q[i] > en && a.includes(S.db.anbarlar[+i])) { en = m.q[i]; i0 = +i; }   // ən çox qalıq olan anbar
+  return i0 >= 0 ? S.db.anbarlar[i0] : a[0];
 }
 function emForm(m, nov, barkod) {
+  if (!yazAnbar().length) { toast('Sənəd yazmaq hüququnuz yoxdur', 4); return; }
   const cix = nov === 'MEXARIC', sus = susAnbar(m, nov);
-  const anb = el('select', null, S.db.anbarlar.map(a => el('option', {value: a, text: a, selected: a === sus})));
+  const anb = el('select', null, yazAnbar().map(a => el('option', {value: a, text: a, selected: a === sus})));
   const miq = el('input', {inputmode: 'decimal', placeholder: '0', autocomplete: 'off'});
   const tey = el('input', {placeholder: cix ? 'Hara / nə üçün' : 'Qeyd (istəyə görə)', list: cix ? 'dlTey' : null, autocomplete: 'off'});
   const kont = el('input', {placeholder: 'Kimdən gəlib (istəyə görə)', list: 'dlKont', autocomplete: 'off'});
@@ -524,7 +649,7 @@ function emForm(m, nov, barkod) {
     const x = ededOxu(miq.value); xeta.textContent = '';
     if (!(x > 0)) { xeta.textContent = 'Miqdarı yazın (sıfırdan böyük).'; miq.focus(); return; }
     if (cix && !tey.value.trim()) { xeta.textContent = 'Təyinatı yazın: hara və ya nə üçün çıxır.'; tey.focus(); return; }
-    if (cix && x > movcud(anb.value) + 1e-9 && !await sorus(`Bu anbarda cəmi ${say(movcud(anb.value))} ${m.v || ''} var, siz ${say(x)} yazırsınız.\n\nExcel belə məxarici qəbul etməyə bilər. Yenə də yazılsın?`, 'Yaz', 'Düzəlt')) return;
+    if (cix && x > movcud(anb.value) + 1e-9 && !await sorus(`Bu anbarda cəmi ${say(movcud(anb.value))} ${m.v || ''} var, siz ${say(x)} yazırsınız.\n\nTəsdiqdə belə məxaric qəbul olunmayacaq. Yenə də yazılsın?`, 'Yaz', 'Düzəlt')) return;
     const d = qaralama(nov, anb.value, true);
     if (!cix) { d.kont = kont.value.trim(); d.sened = sno.value.trim(); }
     d.n = (d.n || 0) + 1;
@@ -545,52 +670,79 @@ function emForm(m, nov, barkod) {
   setTimeout(() => miq.focus(), 50);
 }
 const ST_AD = {QAR: 'Qaralama', HAZ: 'Göndərilməyib', GON: 'Göndərilib'};
+const qaytarilib = d => d.status === 'GON' && /qaytarıl/.test(d.st || '');
+function stNisan(d) {                                                     // mərkəzdəki vəziyyət (təsdiq gözləyir / icra olundu / qaytarılıb …)
+  const st = d.status !== 'GON' ? ST_AD[d.status] : d.st || 'Göndərilib';
+  const c = d.status !== 'GON' ? (d.xeta ? 'xt' : '') : /icra olundu/.test(st) ? 'ok' : /qaytarıl/.test(st) ? 'qy' : /xəta/i.test(st) ? 'xt' : /Ləğv/.test(st) ? '' : 'gz';
+  return el('span', {class: 'nis ' + c, text: st});
+}
 function senedKarti(d) {
-  const cem = d.setir.reduce((s, x) => s + x.m, 0);
   return el('button', {type: 'button', onclick: () => senedDetal(d)},
-    el('span', null, el('div', null, d.id, el('span', {class: 'nis ' + (d.nov === 'MEXARIC' ? 'mex' : 'med'), text: NOV_AD[d.nov]}), el('span', {class: 'nis', text: ST_AD[d.status]})),
-      el('div', {class: 'alt', text: `${tarixAz(d.tarix)} · ${d.anbar}`}), d.status === 'GON' ? el('div', {class: 'alt', text: 'Göndərilib: ' + vaxtQisa(d.gonderildi)}) : null),
+    el('span', null, el('div', null, d.no || d.id, el('span', {class: 'nis ' + (d.nov === 'MEXARIC' ? 'mex' : 'med'), text: NOV_AD[d.nov]}), stNisan(d)),
+      el('div', {class: 'alt', text: `${tarixAz(d.tarix)} · ${d.anbar}`}),
+      d.xeta && d.status !== 'GON' ? el('div', {class: 'xeta', text: d.xeta}) : null,
+      d.status === 'GON' && d.serh ? el('div', {class: 'alt', text: 'Şərh: ' + d.serh}) : null),
     el('b', {class: 'q', text: d.setir.length + ' sətir'}));
 }
 function jurnalCiz() {
   const v = $('#v-jurnal'), qr = S.sened.filter(d => d.status === 'QAR'), hz = S.sened.filter(d => d.status === 'HAZ'), gn = S.sened.filter(d => d.status === 'GON');
+  const qy = gn.filter(qaytarilib);
   v.replaceChildren(...[
-    el('h3', {text: 'Göndərilməli'}),
+    qy.length ? [el('h3', {text: 'Düzəlişə qaytarılıb'}), el('div', {class: 'siy'}, qy.map(senedKarti))] : [],
+    el('h3', {text: 'Göndərilməyib'}),
     hz.length || S.barkYeni.length ? [
-      el('div', {class: 'qeyd', text: `${hz.length} sənəd` + (S.barkYeni.length ? `, ${S.barkYeni.length} yeni barkod bağlantısı` : '') + ' — bir fayl kimi OneDrive-dakı «SabahCity_Mobil» qovluğuna göndərilir.'}),
+      el('div', {class: 'qeyd', text: `${hz.length} sənəd` + (S.barkYeni.length ? `, ${S.barkYeni.length} barkod bağlantısı` : '') + ' — internet olanda özü göndərilir.'}),
       el('div', {class: 'siy'}, hz.map(senedKarti)),
-      el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'Jurnalı göndər', onclick: gonder}))
-    ] : el('div', {class: 'qeyd', text: 'Göndəriləcək heç nə yoxdur.'}),
+      el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'İndi göndər', onclick: () => gonder()}))
+    ] : el('div', {class: 'qeyd', text: 'Hamısı göndərilib.'}),
     el('h3', {text: 'Qaralamalar'}),
     qr.length ? el('div', {class: 'siy'}, qr.map(senedKarti)) : el('div', {class: 'qeyd', text: 'Açıq qaralama yoxdur. Malı tapıb «Mədaxil» və ya «Məxaric» basın.'}),
     el('h3', {text: 'Göndərilmişlər'}),
-    gn.length ? el('div', {class: 'siy'}, gn.slice(0, 40).map(senedKarti)) : el('div', {class: 'qeyd', text: 'Hələ heç nə göndərilməyib.'})].flat());
+    gn.length > qy.length ? el('div', {class: 'siy'}, gn.filter(d => !qaytarilib(d)).slice(0, 60).map(senedKarti)) : el('div', {class: 'qeyd', text: 'Hələ heç nə göndərilməyib.'}),
+    S.giris ? el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Vəziyyəti yenilə', onclick: () => yenile()})) : null].flat());
   nisan();
 }
 function nisan() {
-  const n = S.sened.filter(d => d.status !== 'GON').length + (S.barkYeni.length ? 1 : 0), e = $('#nJurnal');
+  const n = S.sened.filter(d => d.status !== 'GON' || qaytarilib(d)).length + (S.barkYeni.length ? 1 : 0), e = $('#nJurnal');
   e.hidden = !n; e.textContent = n;
+}
+async function hazirla(d) {                                               // qaralama → göndərilməyə hazır; dərhal göndərilir
+  d.status = 'HAZ'; d.uuid = yeniUuid(); d.xeta = '';
+  await saxla('sened'); jurnalCiz(); gonder();
 }
 function senedDetal(d) {
   const qr = d.status === 'QAR', cix = d.nov === 'MEXARIC';
   const tar = el('input', {type: 'date', value: d.tarix, max: bugun(), disabled: !qr});
+  const tip = el('select', {disabled: !qr}, ((S.db && S.db.tipler) || ['Silinmə']).filter(t => t !== 'Mədaxil').map(t => el('option', {value: t, text: t, selected: t === (d.tip || 'Silinmə')})));
   const sno = el('input', {value: d.sened, placeholder: 'Qaimə №', disabled: !qr, autocomplete: 'off'});
   const kont = el('input', {value: d.kont, placeholder: 'Kontragent', list: 'dlKont', disabled: !qr, autocomplete: 'off'});
   const aciq = el('input', {value: d.aciq, placeholder: 'Ümumi qeyd', disabled: !qr, autocomplete: 'off'});
-  const yaz = () => { if (!qr) return; d.tarix = tar.value || bugun(); d.sened = sno.value.trim(); d.kont = kont.value.trim(); d.aciq = aciq.value.trim(); saxla('sened'); };
-  [tar, sno, kont, aciq].forEach(x => x.addEventListener('change', yaz));
+  const yaz = () => { if (!qr) return; d.tarix = tar.value || bugun(); if (cix) d.tip = tip.value; d.sened = sno.value.trim(); d.kont = kont.value.trim(); d.aciq = aciq.value.trim(); saxla('sened'); };
+  [tar, tip, sno, kont, aciq].forEach(x => x.addEventListener('change', yaz));
   const sil = async i => { if (!await sorus(`«${d.setir[i].a}» sətri silinsin?`, 'Sil', 'Ləğv')) return; d.setir.splice(i, 1); await saxla('sened'); senedDetal(d); nisan(); };
+  const miq = async i => { const s = d.setir[i], x = await miqdarSorus(`${s.a}\nMiqdar${s.v ? ' (' + s.v + ')' : ''}:`, s.m); if (x == null || !(x > 0)) return; s.m = Math.round(x * 1000) / 1000; await saxla('sened'); senedDetal(d); };
+  const duzelt = async () => {                                            // qaytarılan sənəd → qaralama (eyni nömrə), düzəlişdən sonra yeni versiya kimi gedir
+    if (!await sorus(`${d.no} düzəlişə qaytarılıb${d.serh ? ':\n«' + d.serh + '»' : ''}\n\nDüzəldib yenidən göndərmək üçün açılsın?`, 'Düzəlt', 'Ləğv')) return;
+    d.status = 'QAR'; d.xeta = ''; await saxla('sened'); senedDetal(d); jurnalCiz();
+  };
   pdAc(el('div', null,
-    el('div', {class: 'kart'}, el('div', {class: 'ad'}, d.id, el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: NOV_AD[d.nov]}), el('span', {class: 'nis', text: ST_AD[d.status]})),
-      el('div', {class: 'alt', text: d.anbar}),
-      el('label', {class: 'sahe'}, 'Tarix', tar), cix ? null : [el('label', {class: 'sahe'}, 'Sənəd №', sno), el('label', {class: 'sahe'}, 'Kontragent', kont)], el('label', {class: 'sahe'}, 'Qeyd', aciq)),
+    el('div', {class: 'kart'}, el('div', {class: 'ad'}, d.no || d.id, el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: NOV_AD[d.nov]}), stNisan(d)),
+      el('div', {class: 'alt', text: d.anbar + (d.no && qr ? ' · düzəliş (yeni versiya kimi gedəcək)' : '')}),
+      d.status === 'GON' && d.serh ? el('div', {class: 'qeyd', text: 'Təsdiqçinin şərhi: ' + d.serh}) : null,
+      d.status === 'GON' && d.icra && /xəta/i.test(d.st || '') ? el('div', {class: 'xeta', text: d.icra.replace(/^XETA\|/, '')}) : null,
+      d.xeta && d.status !== 'GON' ? el('div', {class: 'xeta', text: 'Mərkəz qəbul etmədi: ' + d.xeta}) : null,
+      el('label', {class: 'sahe'}, 'Tarix', tar), cix ? el('label', {class: 'sahe'}, 'Əməliyyat növü', tip) : null,
+      cix ? null : [el('label', {class: 'sahe'}, 'Sənəd №', sno), el('label', {class: 'sahe'}, 'Kontragent', kont)], el('label', {class: 'sahe'}, 'Qeyd', aciq)),
     el('div', {class: 'kart'}, d.setir.length ? d.setir.map((s, i) => el('div', {class: 'sr'}, el('span', null, el('div', {text: s.a}), el('div', {class: 'alt', text: s.k + (s.t ? ' · ' + s.t : '')})),
-      el('b', {text: say(s.m) + ' ' + s.v}), qr ? el('button', {class: 'lnk', type: 'button', text: 'sil', onclick: () => sil(i)}) : null)) : el('div', {class: 'qeyd', text: 'Sətir yoxdur.'})),
+      qr ? el('button', {class: 'mqs', type: 'button', text: say(s.m) + ' ' + s.v, onclick: () => miq(i)}) : el('b', {text: say(s.m) + ' ' + s.v}),
+      qr ? el('button', {class: 'lnk', type: 'button', text: 'sil', onclick: () => sil(i)}) : null)) : el('div', {class: 'qeyd', text: 'Sətir yoxdur.'})),
     el('div', {class: 'row'},
-      qr ? el('button', {class: 'b tehluke', type: 'button', text: 'Sənədi sil', onclick: async () => { if (!await sorus('Bu qaralama tamamilə silinsin?', 'Sil', 'Ləğv')) return; S.sened = S.sened.filter(x => x !== d); await saxla('sened'); pdBagla(); jurnalCiz(); }}) : null,
-      qr ? el('button', {class: 'b esas', type: 'button', text: 'Bitir', disabled: !d.setir.length, onclick: async () => { yaz(); d.status = 'HAZ'; await saxla('sened'); pdBagla(); jurnalCiz(); toast('Sənəd göndərilməyə hazırdır'); }}) : null,
+      qr ? el('button', {class: 'b tehluke', type: 'button', text: d.no ? 'Düzəlişi ləğv et' : 'Sənədi sil', onclick: async () => {
+        if (d.no) { d.status = 'GON'; await saxla('sened'); pdBagla(); jurnalCiz(); return; }
+        if (!await sorus('Bu qaralama tamamilə silinsin?', 'Sil', 'Ləğv')) return; S.sened = S.sened.filter(x => x !== d); await saxla('sened'); pdBagla(); jurnalCiz(); }}) : null,
+      qr ? el('button', {class: 'b esas', type: 'button', text: 'Bitir və göndər', disabled: !d.setir.length, onclick: async () => { yaz(); pdBagla(); await hazirla(d); }}) : null,
       d.status === 'HAZ' ? el('button', {class: 'b', type: 'button', text: 'Qaralamaya qaytar', onclick: async () => { d.status = 'QAR'; await saxla('sened'); senedDetal(d); jurnalCiz(); }}) : null,
-      d.status === 'GON' ? el('button', {class: 'b', type: 'button', text: 'Yenidən göndərməyə hazırla', onclick: async () => { d.status = 'HAZ'; await saxla('sened'); pdBagla(); jurnalCiz(); }}) : null)));
+      qaytarilib(d) ? el('button', {class: 'b esas2', type: 'button', text: 'Düzəlt və yenidən göndər', onclick: duzelt}) : null)));
 }
 
 // ---------------------------------------------------------------- kassa rejimi: ardıcıl skan → bir sənəd (POS kimi)
@@ -605,10 +757,11 @@ function miqdarSorus(metn, deyer) {
 }
 const kassaSened = () => S.kassa ? S.sened.find(x => x.id === S.kassa.id && x.status === 'QAR') : null;
 function kassaQur() {
-  if (!S.db) { toast('Əvvəlcə qalıq faylını yükləyin (Ayarlar)', 4); return; }
-  const sus = S.ayar.anbar && S.db.anbarlar.includes(S.ayar.anbar) ? S.ayar.anbar : S.db.anbarlar[0];
+  if (!S.db) { toast('Əvvəlcə mərkəzə qoşulub daxil olun (Ayarlar)', 4); return; }
+  if (!yazAnbar().length) { toast('Sənəd yazmaq hüququnuz yoxdur', 4); return; }
+  const sus = S.ayar.anbar && yazAnbar().includes(S.ayar.anbar) ? S.ayar.anbar : yazAnbar()[0];
   const nov = el('select', null, el('option', {value: 'MEXARIC', text: 'Məxaric'}), el('option', {value: 'MEDAXIL', text: 'Mədaxil'}));
-  const anb = el('select', null, S.db.anbarlar.map(a => el('option', {value: a, text: a, selected: a === sus})));
+  const anb = el('select', null, yazAnbar().map(a => el('option', {value: a, text: a, selected: a === sus})));
   const tey = el('input', {placeholder: 'Hara / nə üçün', list: 'dlTey', autocomplete: 'off'});
   const kont = el('input', {placeholder: 'Kimdən gəlib (istəyə görə)', list: 'dlKont', autocomplete: 'off'}), sno = el('input', {placeholder: 'Qaimə № (istəyə görə)', autocomplete: 'off'});
   const lt = el('label', {class: 'sahe'}, 'Təyinat (bütün sətirlər üçün)', tey), lk = el('label', {class: 'sahe'}, 'Kontragent', kont), ls = el('label', {class: 'sahe'}, 'Sənəd №', sno), xeta = el('div', {class: 'xeta'});
@@ -663,8 +816,8 @@ async function kassaMiqdar(d, s) {
 async function kassaBitir() {
   const d = kassaSened(); if (!d || !d.setir.length) return;
   if (!await sorus(`${NOV_AD[d.nov]} sənədi bitirilsin?\n${d.setir.length} sətir · ${d.anbar}`, 'Bitir', 'Hələ yox')) return;
-  d.status = 'HAZ'; S.kassa = null; await saxla('sened'); await saxla('kassa'); kamBagla(); ciz();
-  toast('Sənəd hazırdır — «Jurnal» bölməsindən göndərin', 3.5);
+  S.kassa = null; await saxla('kassa'); kamBagla(); ciz();
+  await hazirla(d);
 }
 async function kassaCix() {
   S.kassa = null; await saxla('kassa'); kamBagla(); ciz();
@@ -685,52 +838,42 @@ function kassaCiz() {
       el('button', {class: 'b esas', type: 'button', text: 'Bitir', disabled: !d.setir.length, onclick: kassaBitir}))));
 }
 
-// ---------------------------------------------------------------- jurnal faylı (Fuad / Mehi məktub formatı: TAB ilə, hər məktub SON ilə bitir)
-const tmz = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').trim();
-function faylMetni(senedler, baglar) {
-  const c = S.ayar.cihaz, out = [];
-  for (const d of senedler) {
-    const gid = `MOBIL-${c}-${d.id}`;
-    [['MSG', gid], ['TIP', 'MOBIL_DOC'], ['KIMDEN', c], ['ISTIFADECI', S.ayar.ad], ['GID', gid], ['NOV', d.nov], ['ANBAR', d.anbar], ['TARIX', d.tarix], ['SENED', d.sened],
-      ['KONTRAGENT', d.kont], ['ACIQLAMA', d.aciq], ['YARADILDI', d.yaradildi], ['SETIR_SAYI', d.setir.length]].forEach(x => out.push(x[0] + '\t' + tmz(x[1])));
-    for (const s of d.setir) out.push(['L', s.k, s.a, s.v, d.anbar, String(s.m), s.t, s.uid, s.b].map(tmz).join('\t'));
-    out.push('SON');
+// ---------------------------------------------------------------- mərkəzə göndərmə: barkod bağlamaları + hazır sənədlər (təsdiqə)
+async function barkNovbe() {
+  for (const x of S.barkYeni.slice()) {
+    try { await api('api_barkod_bagla', tok(), x.b, x.k, x.e || 1, 'telefon', !!x.evez); }
+    catch (e) {
+      if (e.kod === 'OFFLINE' || e.kod === 'AUTH') throw e;
+      toast(`Barkod ${x.b} bağlanmadı: ${e.message}`, 5);                // məs. artıq başqa mala bağlıdır — mərkəzdəki qalır
+      delete S.bark[x.b]; delete S.barkE[x.b];
+    }
+    S.barkYeni = S.barkYeni.filter(y => y !== x);
   }
-  if (baglar.length) {
-    const gid = `MOBIL-${c}-B${indi().replace(/\D/g, '')}`;
-    [['MSG', gid], ['TIP', 'MOBIL_BARKOD'], ['KIMDEN', c], ['ISTIFADECI', S.ayar.ad], ['GID', gid], ['YARADILDI', indi()], ['SETIR_SAYI', baglar.length]].forEach(x => out.push(x[0] + '\t' + tmz(x[1])));
-    baglar.forEach((x, i) => out.push(['L', x.k, x.a, '', '', String(x.e || 1), x.t, 'B' + (i + 1), x.b].map(tmz).join('\t')));     // miqdar yerində: 1 skan = neçə vahid
-    out.push('SON');
-  }
-  return out.join('\r\n') + '\r\n';
+  await saxla('barkYeni'); await saxla('bark'); await saxla('barkE');
 }
-function gonderHazirla() {
-  const hz = S.sened.filter(d => d.status === 'HAZ'), bg = S.barkYeni.slice();
-  if (!hz.length && !bg.length) return null;
-  return {hz, bg, ad: `MOBIL__${S.ayar.cihaz}__${indi().replace(/[-:]/g, '').replace(' ', '-')}.txt`, metn: faylMetni(hz, bg)};
-}
-async function gonderCatdir(ad, metn) {                                    // '' = istifadəçi ləğv etdi
+async function gonder(sakit) {
+  if (!S.giris) { if (!sakit) girisForm(); return; }
+  if (S.gonderilir) return;
+  const hz = S.sened.filter(d => d.status === 'HAZ');
+  if (!hz.length && !S.barkYeni.length) { if (!sakit) toast('Göndəriləcək heç nə yoxdur'); return; }
+  S.gonderilir = true; let ok = 0, xt = 0, son = '';
   try {
-    const f = new File([metn], ad, {type: 'text/plain'});
-    if (navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f], title: ad}); return 'paylaşıldı'; }
-  } catch (e) { if (e && e.name === 'AbortError') return ''; }
-  const u = URL.createObjectURL(new Blob([metn], {type: 'text/plain'})), a = el('a', {href: u, download: ad});     // paylaşma yoxdur - fayl kimi endir
-  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000);
-  return 'endirildi';
-}
-async function gonderBitir(g, yol) {
-  const t = indi();
-  g.hz.forEach(d => { d.status = 'GON'; d.gonderildi = t; d.fayl = g.ad; });
-  S.barkYeni = S.barkYeni.filter(x => !g.bg.some(y => y.b === x.b && y.t === x.t));
-  await saxla('sened'); await saxla('barkYeni'); jurnalCiz();
-  toast(`Fayl ${yol}: ${g.hz.length} sənəd` + (g.bg.length ? `, ${g.bg.length} barkod` : ''), 4);
-}
-async function gonder() {
-  const g = gonderHazirla();
-  if (!g) return toast('Göndəriləcək heç nə yoxdur');
-  const yol = await gonderCatdir(g.ad, g.metn);
-  if (!yol) return toast('Göndərmə ləğv olundu');
-  await gonderBitir(g, yol);
+    await barkNovbe();
+    for (const d of hz) {
+      if (!d.uuid) d.uuid = yeniUuid();
+      const p = {nov: d.nov, tip: d.tip || (d.nov === 'MEDAXIL' ? 'Mədaxil' : 'Silinmə'), anbar: d.anbar, tarix: d.tarix, sened: d.sened, kont: d.kont, aciq: d.aciq,
+        cihaz: S.ayar.cihaz, lines: d.setir.map(s => ({mal: s.a, kod: s.k, vah: s.v, miq: String(s.m), tey: s.t}))};
+      if (d.no) p.no = d.no;
+      const r = await api('api_submit', tok(), d.uuid, 'mob_daxil', p, new Date().toISOString()), x = (r && r.result) || {};
+      if (x.ok) { Object.assign(d, {status: 'GON', no: x.no, ver: x.ver, st: x.ver > 1 ? 'Yenidən göndərilib' : 'Təsdiq gözləyir', serh: '', icra: '', gonderildi: indi(), xeta: ''}); ok++; }
+      else { d.status = 'QAR'; d.xeta = String(x.x || 'Qəbul olunmadı').replace(/^XETA\|/, ''); xt++; son = d.xeta; }      // düzəldib yenidən «Bitir»
+    }
+  } catch (e) {
+    if (e.kod === 'AUTH') girisForm('Sessiya bitib — yenidən daxil olun.');
+    else if (!sakit || e.kod !== 'OFFLINE') { xt++; son = e.message; }
+  } finally { S.gonderilir = false; await saxla('sened'); nisan(); if ($('#v-jurnal').classList.contains('sec')) jurnalCiz(); }
+  if (ok && !xt) toast(`${ok} sənəd göndərildi — təsdiq gözləyir`, 3);
+  else if (xt) toast((ok ? `${ok} sənəd göndərildi. ` : '') + 'Göndərilmədi: ' + son, 5);
 }
 
 // ---------------------------------------------------------------- EAN-13 çəkmək (skaner özünüyoxlaması)
@@ -757,16 +900,26 @@ async function skanerYoxla() {
 // ---------------------------------------------------------------- görünüşlər
 function axtarCiz() {
   const q = $('#iAxtar').value, l = axtar(q, 60);
-  $('#axtarQeyd').textContent = !S.db ? 'Əvvəlcə qalıq faylını yükləyin (Ayarlar).' : !q.trim() ? 'Adın bir hissəsini və ya kodu yazın. ə, ı, ş, ç, ö, ü, ğ hərflərini adi hərflə yazmaq olar.' : l.length ? (l.length === 60 ? 'İlk 60 nəticə — daha dəqiq yazın.' : l.length + ' nəticə') : 'Tapılmadı.';
+  $('#axtarQeyd').textContent = !S.db ? 'Əvvəlcə mərkəzə qoşulub daxil olun (Ayarlar).' : !q.trim() ? 'Adın bir hissəsini və ya kodu yazın. ə, ı, ş, ç, ö, ü, ğ hərflərini adi hərflə yazmaq olar.' : l.length ? (l.length === 60 ? 'İlk 60 nəticə — daha dəqiq yazın.' : l.length + ' nəticə') : 'Tapılmadı.';
   $('#axtarSiy').replaceChildren(...l.map(m => malSetri(m, () => S.kassa ? kassaElave(m, 1, '') : malKarti(m, ''))));
 }
 function ayarCiz() {
-  const v = $('#v-ayar'), d = S.db, a = S.ayar;
-  const fayl = el('input', {type: 'file', accept: '.json,application/json,text/plain', hidden: true});
-  fayl.addEventListener('change', async () => { const f = fayl.files[0]; if (!f) return; try { await dbYaz(await f.text()); } catch (e) { toast('Fayl yüklənmədi: ' + (e.message || e), 5); } fayl.value = ''; });
-  const ad = el('input', {value: a.ad, placeholder: 'Adınız (jurnalda görünür)', autocomplete: 'off'});
-  ad.addEventListener('change', () => { a.ad = ad.value.trim(); saxla('ayar'); });
-  const anb = el('select', null, el('option', {value: '', text: '— hər dəfə seçilsin —'}), (d ? d.anbarlar : []).map(x => el('option', {value: x, text: x, selected: x === a.anbar})));
+  const v = $('#v-ayar'), d = S.db, a = S.ayar, g = S.giris;
+  const kodYaz = el('textarea', {placeholder: 'Qoşulma kodu', rows: 3, autocomplete: 'off', autocapitalize: 'off'});
+  const merkez = !S.qos ? el('div', {class: 'kart'},
+      el('div', {class: 'ad', text: 'Telefonu mərkəzə qoşun'}),
+      el('div', {class: 'qeyd', text: 'Kompüterdəki proqramda: Hesab → «📱 Telefonu qoş». Ekranda çıxan QR kodu bu proqramın «Skan» bölməsində kamera ilə oxudun. Bu, bir dəfəlikdir.'}),
+      el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'QR kodu skan et', onclick: () => { gorunus('skan'); if (!K.aktiv) kamAc(); }})),
+      el('label', {class: 'sahe'}, 'Və ya qoşulma kodunu yapışdırın', kodYaz),
+      el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Qoşul', onclick: () => { const q = qosOxu(kodYaz.value); if (q) qosQebul(q); else toast('Kod tanınmadı', 3); }})))
+    : !g ? el('div', {class: 'kart'}, el('div', {class: 'ad', text: S.qos.n}), el('div', {class: 'qeyd', text: 'Telefon qoşulub. İndi istifadəçi adınız və parolunuzla daxil olun.'}),
+      el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'Daxil ol', onclick: () => girisForm()})),
+      el('button', {class: 'lnk', type: 'button', text: 'Qoşulmanı sil', onclick: qosSil}))
+    : el('div', {class: 'kart'}, el('div', {class: 'ad', text: g.me.full_name || g.me.login}), el('div', {class: 'alt', text: `${g.me.login} · ${ROL[g.me.role] || g.me.role} · ${S.qos.n}`}),
+      el('div', {class: 'qeyd', text: d ? `Qalıq: ${vaxtQisa(d.vaxt)} · ${d.mallar.length} mal · ${d.anbarlar.length} anbar · ${Object.keys(d.barkodlar || {}).length} barkod` : 'Məlumat hələ yüklənməyib'}),
+      el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'İndi yenilə', onclick: () => yenile()}), el('button', {class: 'b', type: 'button', text: 'Hesabdan çıx', onclick: cixis})),
+      el('div', {class: 'qeyd', text: 'Məlumat proqram açılanda və hər 3 dəqiqədən bir özü yenilənir. İnternet olmayanda da işləyir: yazdıqlarınız internet gələndə göndərilir.'}));
+  const anb = el('select', null, el('option', {value: '', text: '— hər dəfə seçilsin —'}), yazAnbar().map(x => el('option', {value: x, text: x, selected: x === a.anbar})));
   anb.addEventListener('change', () => { a.anbar = anb.value; saxla('ayar'); });
   const gk = el('input', {type: 'password', value: a.gkey, placeholder: 'Gemini API açarı', autocomplete: 'off'});
   gk.addEventListener('change', () => { a.gkey = gk.value.trim(); saxla('ayar'); });
@@ -774,13 +927,9 @@ function ayarCiz() {
   gm.addEventListener('change', () => { a.gmodel = gm.value.trim(); saxla('ayar'); });
   const gq = el('div', {class: 'qeyd'}), sq = el('div', {class: 'qeyd', text: S.detAd ? 'Oxuyucu: ' + S.detAd : ''});
   v.replaceChildren(
-    el('h3', {text: 'Qalıq faylı'}),
-    el('div', {class: 'kart'}, el('div', {text: d ? `${d.mallar.length} mal · ${d.anbarlar.length} anbar` : 'Hələ yüklənməyib'}),
-      el('div', {class: 'alt', text: d ? `Excel-in ${vaxtQisa(d.vaxt)} vəziyyəti (möhür ${d.mohur || '—'})` : 'OneDrive → SabahCity_Mobil → uyum_mobil_mehsullar.json'}),
-      el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: d ? 'Yeni faylı yüklə' : 'Faylı seç', onclick: () => fayl.click()})), fayl,
-      el('div', {class: 'qeyd', text: 'Qalıq son yüklənən fayla qədər təzədir. Telefon internetsiz də işləyir.'})),
-    el('h3', {text: 'İstifadəçi'}),
-    el('div', {class: 'kart'}, el('label', {class: 'sahe'}, 'Ad', ad), el('label', {class: 'sahe'}, 'Əsas anbar', anb), el('div', {class: 'qeyd', text: 'Cihaz kodu: ' + a.cihaz})),
+    el('h3', {text: 'Mərkəz'}), merkez,
+    ...(g ? [el('h3', {text: 'Əsas anbar'}),
+      el('div', {class: 'kart'}, el('label', {class: 'sahe'}, 'Sənəd yazanda susmaya görə', anb), el('div', {class: 'qeyd', text: 'Cihaz kodu: ' + a.cihaz}))] : []),
     el('h3', {text: 'AI izah (Gemini)'}),
     el('div', {class: 'kart'}, el('label', {class: 'sahe'}, 'API açarı (yalnız bu telefonda saxlanır)', gk), el('label', {class: 'sahe'}, 'Model', gm),
       el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Modeli yoxla', onclick: async () => {
@@ -792,8 +941,8 @@ function ayarCiz() {
     el('div', {class: 'kart'}, el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Skaneri yoxla', onclick: async () => {
         sq.textContent = 'Yoxlanır…'; try { sq.textContent = 'İşləyir — ' + await skanerYoxla(); } catch (e) { sq.textContent = 'Alınmadı: ' + (e.message || e); } }})), sq),
     el('h3', {text: 'Haqqında'}),
-    el('div', {class: 'kart'}, el('div', {text: 'Uyum Mobil ' + SURUM}),
-      el('div', {class: 'qeyd', text: `Bağlanmış barkod: ${Object.keys(S.bark).length + (d && d.barkodlar ? Object.keys(d.barkodlar).length : 0)} · sənəd: ${S.sened.length}`}),
+    el('div', {class: 'kart'}, el('div', {text: 'Anbar Mobil ' + SURUM}),
+      el('div', {class: 'qeyd', text: `Barkod: ${(d && d.barkodlar ? Object.keys(d.barkodlar).length : 0)} mərkəzdə` + (S.barkYeni.length ? `, ${S.barkYeni.length} göndərilməyib` : '') + ` · sənəd: ${S.sened.length}`}),
       el('div', {class: 'qeyd', text: 'Ana ekrana əlavə: iPhone — Safari-də «Paylaş» → «Ana ekrana əlavə et». Android — Chrome menyusu → «Tətbiqi quraşdır».'})));
 }
 function gorunus(ad) {
@@ -801,15 +950,19 @@ function gorunus(ad) {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('sec', x.dataset.v === ad));
   if (ad !== 'skan' && K.aktiv) kamBagla();
   if (ad === 'axtar') { axtarCiz(); setTimeout(() => $('#iAxtar').focus(), 50); }
-  if (ad === 'jurnal') jurnalCiz();
+  if (ad === 'jurnal') { jurnalCiz(); if (S.giris && Date.now() - S.sonYenileme > 20000) yenile(true); }
   if (ad === 'ayar') ayarCiz();
 }
 function ciz() {
   durumYaz(); nisan(); kassaCiz();
   $('#skanAlt').hidden = !!S.kassa;
   $('#skanAlt').replaceChildren(S.db ? el('div', {class: 'qeyd', text: 'Barkodu çərçivəyə gətirin. Barkodsuz mal üçün «Axtar» bölməsindən adına görə tapın.'})
-    : el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Əvvəlcə qalıq faylını yükləyin'}), el('div', {class: 'qeyd', text: 'Excel-in OneDrive-a yazdığı «uyum_mobil_mehsullar.json» faylı lazımdır.'}),
-        el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'Ayarlara keç', onclick: () => gorunus('ayar')}))));
+    : el('div', {class: 'kart'}, el('div', {class: 'ad', text: !S.qos ? 'Telefonu mərkəzə qoşun' : !S.giris ? 'Daxil olun' : 'Mal siyahısı yüklənir…'}),
+        el('div', {class: 'qeyd', text: !S.qos ? 'Kompüterdəki proqramda: Hesab → «📱 Telefonu qoş», sonra ekrandakı QR kodu burada kamera ilə oxudun.'
+          : !S.giris ? 'Proqramın istifadəçi adı və parolu ilə.' : 'Mal siyahısı, qalıqlar və barkodlar mərkəzdən gəlir.'}),
+        el('div', {class: 'row'}, !S.qos ? el('button', {class: 'b esas', type: 'button', text: 'QR kodu skan et', onclick: () => { if (!K.aktiv) kamAc(); }})
+          : !S.giris ? el('button', {class: 'b esas', type: 'button', text: 'Daxil ol', onclick: () => girisForm()})
+          : el('button', {class: 'b', type: 'button', text: 'Yenilə', onclick: () => yenile()}))));
   const sec = document.querySelector('.v.sec').id.slice(2);
   if (sec === 'axtar') axtarCiz(); if (sec === 'jurnal') jurnalCiz(); if (sec === 'ayar') ayarCiz();
 }
@@ -823,13 +976,20 @@ $('#bIsiq').addEventListener('click', async () => { try { K.isiq = !K.isiq; awai
 $('#fSekil').addEventListener('change', e => { const f = e.target.files[0]; if (f) sekildenOxu(f); e.target.value = ''; });
 $('#fKod').addEventListener('submit', e => { e.preventDefault(); const b = $('#iKod').value.trim(); if (b) { $('#iKod').value = ''; $('#iKod').blur(); kodAc(b); } });
 $('#iAxtar').addEventListener('input', axtarCiz);
-document.addEventListener('visibilitychange', () => { if (document.hidden && K.aktiv) kamBagla(); });
-window.addEventListener('online', durumYaz); window.addEventListener('offline', durumYaz);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && K.aktiv) kamBagla();
+  if (!document.hidden && Date.now() - S.sonYenileme > 60000) yenile(true);
+});
+window.addEventListener('online', () => { durumYaz(); yenile(true); }); window.addEventListener('offline', durumYaz);
+$('#durum').addEventListener('click', () => S.giris ? yenile() : gorunus('ayar'));
+setInterval(() => { if (!document.hidden && navigator.onLine !== false) yenile(true); }, 180000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 (async () => {
   try { await yukle(); } catch (e) { toast('Yaddaş oxunmadı: ' + (e.message || e), 5); }
-  if (!S.db && new URLSearchParams(location.search).has('numune')) { try { await dbYaz(await (await fetch('numune.json')).text()); } catch (e) {} }
+  const q = qosOxu(location.hash);                                        // proqramın QR kodu telefonun öz kamerası ilə açılıbsa
+  if (q) history.replaceState(null, '', location.pathname + location.search);
   ciz();
+  if (q) await qosQebul(q); else if (S.giris) yenile(true);
   if (navigator.onLine !== false) setTimeout(() => skanerYoxla().catch(() => {}), 1500);       // kitabxana oflayn üçün əvvəlcədən keşlənsin
 })();
 </script>
