@@ -51,6 +51,7 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 .pdx { display: flex; justify-content: flex-end; position: sticky; top: 0; } .pdx button { border: 0; background: var(--kart); color: var(--mt); width: 40px; height: 40px; border-radius: 20px; font-size: 18px; }
 .off { display: flex; gap: 12px; align-items: flex-start; margin: 10px 0; } .off img { width: 84px; height: 84px; object-fit: contain; background: #fff; border-radius: 10px; border: 1px solid var(--xett); }
 .ai { white-space: pre-wrap; font-size: 15px; background: var(--kart); border: 1px solid var(--xett); border-radius: 11px; padding: 10px 12px; margin: 10px 0; }
+#yeniVer { display: flex; gap: 10px; align-items: center; padding: 8px 16px; background: var(--sari); color: #fff; font-size: 14px; } #yeniVer span { flex: 1; } #yeniVer .b { min-height: 36px; background: #fff; color: var(--sari); border-color: #fff; } #yeniVer[hidden] { display: none; }
 #toast { position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 70px); background: #1f2925; color: #fff; padding: 12px 14px; border-radius: 12px; z-index: 30; text-align: center; transition: opacity .25s; } #toast[hidden] { display: none; }
 .nis { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 9px; background: var(--xett); color: var(--mt); margin-left: 6px; white-space: nowrap; } .nis.med { background: var(--y); color: #fff; } .nis.mex { background: var(--y2); color: #fff; }
 .sorgu { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; } .sorgu > div, .sorgu > form { background: var(--kart); border-radius: 16px; padding: 18px; width: 100%; max-width: 420px; white-space: pre-wrap; }
@@ -68,6 +69,7 @@ textarea { min-height: 70px; resize: vertical; }
 </head>
 <body>
 <header><b>Anbar Mobil</b><div id="durum" role="button" tabindex="0">Yüklənir…</div></header>
+<div id="yeniVer" hidden><span id="yeniVerMetn"></span><button class="b esas" type="button" id="yeniVerBtn">Yenilə</button></div>
 <main>
   <section id="v-skan" class="v sec">
     <div id="kam"><video id="vid" playsinline muted></video><div class="cerceve"></div><div id="kamMesaj">Kamera bağlıdır</div></div>
@@ -99,7 +101,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.4 · 21.11.2026';
+const SURUM = '0.3.5 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
@@ -200,6 +202,30 @@ async function api(fn, ...args) {
   return v;
 }
 const tok = () => S.giris && S.giris.tok;
+// ---------------------------------------------------------------- proqramın yeni versiyası (ana ekrandan açılanda da)
+const verNo = t => (String(t || '').match(/\d+/g) || []).slice(0, 3).map(Number);
+const verYeni = (a, b) => { const x = verNo(a), y = verNo(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+let sonVerYoxla = 0;
+async function versiyaYoxla(sakit) {                                      // serverdəki index.html-in SURUM-u ilə müqayisə
+  sonVerYoxla = Date.now();
+  try {
+    const r = await fetch('./index.html?versiya', {cache: 'no-store'});
+    const m = (await r.text()).match(/const SURUM = '([^']+)'/), v = m && m[1];
+    if (v && verYeni(v, SURUM)) {
+      $('#yeniVerMetn').textContent = `Yeni versiya var: ${v.split(' ')[0]}`; $('#yeniVer').hidden = false;
+      return v;
+    }
+    $('#yeniVer').hidden = true;
+    if (!sakit) toast('Ən son versiyadır: ' + SURUM.split(' ')[0], 2.5);
+  } catch (e) { if (!sakit) toast('Yoxlamaq olmadı — internet yoxdur?', 3); }
+  return null;
+}
+async function proqramiYenile() {                                         // köhnə keşi sil → serverdən təzəsini yüklə
+  toast('Yenilənir…', 5);
+  try { const r = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (r) await r.update(); } catch (e) {}
+  try { for (const k of await caches.keys()) if (k.startsWith('uyum-mobil-tetbiq')) await caches.delete(k); } catch (e) {}
+  location.reload();
+}
 async function baglantiYoxla(yer) {                                       // «Bağlantını yoxla»: problem harada — şəkli çəkilib adminə göndərilə bilər
   const l = [], ua = navigator.userAgent;
   const cihaz = (/iPhone|iPad/.test(ua) ? 'iPhone/iPad, iOS ' + ((ua.match(/OS (\d+[_\d]*)/) || [])[1] || '?').replace(/_/g, '.') :
@@ -1016,6 +1042,8 @@ function ayarCiz() {
         sq.textContent = 'Yoxlanır…'; try { sq.textContent = 'İşləyir — ' + await skanerYoxla(); } catch (e) { sq.textContent = 'Alınmadı: ' + (e.message || e); } }})), sq),
     el('h3', {text: 'Haqqında'}),
     el('div', {class: 'kart'}, el('div', {text: 'Anbar Mobil ' + SURUM}),
+      el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Yeni versiyanı yoxla', onclick: () => versiyaYoxla(false)}),
+        el('button', {class: 'b esas', type: 'button', text: 'Proqramı yenilə', onclick: proqramiYenile})),
       el('div', {class: 'qeyd', text: `Barkod: ${(d && d.barkodlar ? Object.keys(d.barkodlar).length : 0)} mərkəzdə` + (S.barkYeni.length ? `, ${S.barkYeni.length} göndərilməyib` : '') + ` · sənəd: ${S.sened.length}`}),
       el('div', {class: 'qeyd', text: 'Ana ekrana əlavə: iPhone — Safari-də «Paylaş» → «Ana ekrana əlavə et». Android — Chrome menyusu → «Tətbiqi quraşdır».'})));
 }
@@ -1061,6 +1089,9 @@ window.addEventListener('hashchange', () => {                             // pro
   if (q) { history.replaceState(null, '', location.pathname + location.search); qosQebul(q); }
 });
 setInterval(() => { if (!document.hidden && navigator.onLine !== false) yenile(true); }, 180000);
+$('#yeniVerBtn').addEventListener('click', proqramiYenile);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - sonVerYoxla > 30 * 60000) versiyaYoxla(true); });
+setTimeout(() => versiyaYoxla(true), 4000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 (async () => {
   try { await yukle(); } catch (e) { toast('Yaddaş oxunmadı: ' + (e.message || e), 5); }

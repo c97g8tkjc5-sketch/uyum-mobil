@@ -2,7 +2,7 @@
    Tetbiq fayllari: evvel shebeke (yenilik gelsin); 2,5 san cavab yoxdursa ve ya internet yoxdursa - kesh.
    Sehife achilishlari (unvanda parametr olsa da) bir kesh yazisinda saxlanir: index.html.
    Barkod kitabxanasi ve onun .wasm fayli (jsDelivr, versiyali unvan): evvel kesh. Bashqa unvanlara (mehsul bazasi, AI) toxunulmur. */
-const TETBIQ = 'uyum-mobil-tetbiq-v8', KITAB = 'uyum-mobil-kitabxana-v1';
+const TETBIQ = 'uyum-mobil-tetbiq-v9', KITAB = 'uyum-mobil-kitabxana-v1';
 const FAYLLAR = ['./index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => e.waitUntil(
@@ -16,6 +16,7 @@ self.addEventListener('fetch', e => {
   const r = e.request;
   if (r.method !== 'GET') return;
   const u = new URL(r.url);
+  if (u.origin === self.location.origin && u.search === '?versiya') return;      // yeni versiya yoxlaması — həmişə birbaşa serverə (keşsiz)
   if (u.origin === self.location.origin) {
     const acar = r.mode === 'navigate' ? new Request('./index.html') : r;
     e.respondWith((async () => {
