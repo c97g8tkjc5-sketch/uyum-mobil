@@ -62,7 +62,6 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 .tez { gap: 6px; } .tez .b { min-height: 38px; font-size: 14px; padding: 0 8px; }
 .her .gir { color: #1f8a4c; } .her .cix { color: var(--qr); } @media (prefers-color-scheme: dark) { .her .gir { color: #5fd08f; } }
 .her .sr { align-items: flex-start; } .her .sr b { white-space: nowrap; } .cemh { font-size: 14px; margin: 6px 0; }
-.siy.her > button { align-items: flex-start; } .siy.her > button b { white-space: nowrap; }
 .siy > button > .qutu { flex: none; }
 .siy .nis { white-space: normal; max-width: 100%; }
 .yoxla .sr b { width: 22px; flex: none; } .yoxla .sr span { flex: none; width: 42%; } .yoxla .sr i { flex: 1; font-style: normal; color: var(--boz); overflow-wrap: anywhere; }                          /* uzun vəziyyət («Təsdiq edildi və icra olundu») dar ekranda sətrə bölünür */
@@ -95,7 +94,7 @@ textarea { min-height: 70px; resize: vertical; }
     <div id="axtarSiy" class="siy"></div>
   </section>
   <section id="v-qaliq" class="v">
-    <div class="row"><button id="bHereket" class="b" type="button">📋 Hərəkətlər (filtr)</button><button id="bUyum" class="b" type="button" hidden>✅ UyumSoft gözləyənlər</button></div>
+    <div class="row"><button id="bHereket" class="b" type="button">📋 Hərəkətlər (filtr)</button></div>
     <select id="qAnbar" aria-label="Anbar"></select>
     <div id="qFilt" class="row filt"></div>
     <input id="iQaliq" type="search" placeholder="Bu anbarda axtar" autocomplete="off" enterkeyhint="search">
@@ -118,7 +117,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.10 · 21.11.2026';
+const SURUM = '0.3.11 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Çıxış'};
@@ -666,7 +665,6 @@ function qaliqCiz() {
     onclick: () => { S.ayar.qFilt = k; saxla('ayar'); qaliqCiz(); }})));
   $('#qQeyd').textContent = (l.length ? `${l.length} mal` : 'Bu seçimdə mal yoxdur.') + (l.length > HEDD ? ` — ilk ${HEDD} göstərilir, axtarışla dəqiqləşdirin` : '') +
     ` · qalıq ${vaxtQisa(d.vaxt)} vəziyyətinədir`;
-  $('#bUyum').hidden = !(S.giris && S.giris.me && S.giris.me.role === 'admin');
   $('#qToplu').replaceChildren(...(l.length ? [el('div', {class: 'row'},
     f === 'barkodsuz' ? el('button', {class: 'b esas', type: 'button', text: `Göstərilənlərə barkod ver (${Math.min(l.length, 100)})`, onclick: () => topluBarkod(l.map(x => x.m))}) : null,
     el('button', {class: 'b', type: 'button', text: '⬇ Excel', onclick: () => qaliqExcel(l, f)}))] : []));
@@ -825,52 +823,6 @@ async function hereketExcel(p, ad, btn) {                                  // b�
       [11, 22, 12, 14, 22, 40, 14, 8, 9, 9, 22, 22, 10]), faylAdi(ad));
   } catch (e) { toast(e.message, 5); }
   finally { if (btn) { btn.disabled = false; btn.textContent = '⬇ Excel'; } }
-}
-
-// ---------------------------------------------------------------- UyumSoft gözləyənlər (admin; Telegram-dakı «Təsdiq gözləyənlər», proqramda Ctrl+Shift+B)
-function uyumForm() {
-  if (!S.db) { toast('Əvvəlcə mərkəzə qoşulub daxil olun (Ayarlar)', 3.5); return; }
-  const anb = el('select', null, el('option', {value: '', text: 'Bütün anbarlar'}), S.db.anbarlar.map(a => el('option', {value: a, text: a})));
-  const sec = new Set(), siy = el('div', {class: 'siy her'}), bas = el('div', {class: 'cemh'}), dav = el('div', {class: 'row'});
-  const btn = el('button', {class: 'b esas', type: 'button', disabled: true}), exc = el('button', {class: 'b', type: 'button', text: '⬇ Excel'});
-  let son = null;
-  const say1 = () => { btn.textContent = `Seçilənlər UyumSoft-da işlənib (${sec.size})`; btn.disabled = !sec.size; };
-  const setir = x => {
-    const g = +x[9] || 0, c = +x[10] || 0, b = el('button', {type: 'button'});
-    const ciz = () => b.replaceChildren(el('span', {class: 'qutu', text: sec.has(x[0]) ? '☑' : '☐'}),
-      el('span', null, el('div', {text: [tarixAz(x[1]) || 'tarixsiz', anbarQisa(x[2]), x[3], x[4]].filter(Boolean).join(' · ')}), el('div', {text: x[6]}),
-        [x[5], x[11]].some(Boolean) ? el('div', {class: 'alt', text: [x[5], x[11]].filter(Boolean).join(' · ')}) : null),
-      el('b', {class: g ? 'gir' : 'cix', text: (g ? '+' + say(g) : '−' + say(c)) + (x[8] ? ' ' + x[8] : '')}));
-    b.addEventListener('click', () => { if (sec.has(x[0])) sec.delete(x[0]); else sec.add(x[0]); b.classList.toggle('secili', sec.has(x[0])); ciz(); say1(); });
-    ciz(); return b;
-  };
-  const p = () => ({h: 'Xeyr', anbar: anb.value, limit: 100});
-  const yukle = async davam => {
-    if (!davam) { siy.replaceChildren(); sec.clear(); say1(); bas.textContent = 'Yüklənir…'; dav.replaceChildren(); }
-    try {
-      const r = await api('api_mobil_hereket', tok(), Object.assign(p(), davam && son ? {evvel: [son[1], son[0]]} : {}));
-      if (r.rows.length) son = r.rows[r.rows.length - 1];
-      bas.textContent = r.cem.n ? `${r.cem.n} sətir UyumSoft-da işlənməyib (H ≠ Bəli). Toxunub seçin.` : 'Hamısı işlənib ✔';
-      siy.append(...r.rows.map(setir));
-      dav.replaceChildren(...(r.devam ? [el('button', {class: 'b', type: 'button', text: 'Daha çox', onclick: () => yukle(true)})] : []));
-    } catch (e) { bas.replaceChildren(el('div', {class: 'xeta', text: e.message})); }
-  };
-  btn.addEventListener('click', async () => {
-    const rows = [...sec];
-    if (!await sorus(`${rows.length} sətir «UyumSoft-da işlənib» (H = Bəli) edilsin?\n\nProqramdakı Ctrl+Shift+B ilə eynidir.`, 'Bəli et', 'Ləğv')) return;
-    btn.disabled = true;
-    try {
-      const r = await api('api_submit', tok(), yeniUuid(), 'sq_rows', {rows, yeni: 'Bəli', menbe: 'Telefon', sebeb: 'Telefondan: UyumSoft-da işlənib'}, new Date().toISOString());
-      const x = (r && r.result) || {};
-      if (!x.ok) { toast(String(x.msg || 'Alınmadı').replace(/^XETA\|/, ''), 5); say1(); return; }
-      toast(`${x.n} sətir işlənib (Bəli) edildi`, 3); yukle(false);
-    } catch (e) { toast(e.message, 5); say1(); }
-  });
-  exc.addEventListener('click', () => hereketExcel(Object.assign(p(), {limit: 300}), 'UyumSoft_gozleyenler', exc));
-  anb.addEventListener('change', () => yukle(false));
-  pdAc(el('div', null, el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'UyumSoft gözləyənlər'}), el('label', {class: 'sahe'}, 'Anbar', anb), bas,
-    el('div', {class: 'row'}, exc), siy, dav), el('div', {class: 'row'}, btn)));
-  say1(); yukle(false);
 }
 
 const EMSAL_AD = 'Bir skan neçə vahid sayılsın? (qutudursa — içindəki say)';
@@ -1485,7 +1437,6 @@ $('#fKod').addEventListener('submit', e => { e.preventDefault(); const b = $('#i
 $('#iAxtar').addEventListener('input', axtarCiz);
 $('#iQaliq').addEventListener('input', qaliqCiz);
 $('#bHereket').addEventListener('click', hereketForm);
-$('#bUyum').addEventListener('click', uyumForm);
 $('#qAnbar').addEventListener('change', () => { S.ayar.qAnbar = S.db.anbarlar[+$('#qAnbar').value]; saxla('ayar'); qaliqCiz(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && K.aktiv) kamBagla();
