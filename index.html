@@ -55,6 +55,9 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 .nis { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 9px; background: var(--xett); color: var(--mt); margin-left: 6px; white-space: nowrap; } .nis.med { background: var(--y); color: #fff; } .nis.mex { background: var(--y2); color: #fff; }
 .sorgu { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; } .sorgu > div, .sorgu > form { background: var(--kart); border-radius: 16px; padding: 18px; width: 100%; max-width: 420px; white-space: pre-wrap; }
 .sr.yeni { background: rgba(42, 148, 125, .16); border-radius: 8px; }
+.basliq { display: flex; align-items: baseline; gap: 14px; } .basliq h3 { flex: 1; }
+.siy .nis { white-space: normal; max-width: 100%; }                          /* uzun vəziyyət («Təsdiq edildi və icra olundu») dar ekranda sətrə bölünür */
+.siy > button.secili { background: rgba(42, 148, 125, .16); } .qutu { font-size: 22px; line-height: 1; color: var(--y); flex: none; }
 .mq { width: 40px; height: 40px; border-radius: 20px; border: 1px solid var(--xett); background: var(--kart); color: var(--mt); font-size: 20px; line-height: 1; flex: none; }
 .mqs { border: 0; background: none; color: var(--mt); font: inherit; font-weight: 650; font-variant-numeric: tabular-nums; min-width: 62px; text-align: center; flex: none; padding: 8px 2px; }
 .qr { color: var(--qr); }
@@ -95,7 +98,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3 · 21.11.2026';
+const SURUM = '0.3.1 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
@@ -676,8 +679,22 @@ function stNisan(d) {                                                     // mə
   const c = d.status !== 'GON' ? (d.xeta ? 'xt' : '') : /icra olundu/.test(st) ? 'ok' : /qaytarıl/.test(st) ? 'qy' : /xəta/i.test(st) ? 'xt' : /Ləğv/.test(st) ? '' : 'gz';
   return el('span', {class: 'nis ' + c, text: st});
 }
+let secim = null;                                                          // jurnal təmizliyi: seçilmiş göndərilmiş sənədlərin id-ləri (Set) və ya null
+const gozleyir = d => d.status === 'GON' && !/icra olundu|Ləğv/.test(d.st || '');
+function secDeyis(d) { if (secim.has(d.id)) secim.delete(d.id); else secim.add(d.id); jurnalCiz(); }
+async function jurnaldanSil(ids) {                                        // yalnız telefonun jurnalından; mərkəzdə (proqramda) qalır
+  const l = S.sened.filter(d => ids.has(d.id) && d.status === 'GON');
+  if (!l.length) return;
+  const g = l.filter(gozleyir).length;
+  if (!await sorus(`${l.length} sənəd telefonun jurnalından silinsin?\n\nMərkəzdə (proqramda) qalır — yalnız bu telefondan silinir.` +
+    (g ? `\n\nDiqqət: ${g} sənəd hələ təsdiq gözləyir — silsəniz, onun vəziyyətini telefonda görməyəcəksiniz.` : ''), 'Sil', 'Ləğv')) return;
+  S.sened = S.sened.filter(d => !l.includes(d)); secim = null;
+  await saxla('sened'); pdBagla(); jurnalCiz(); toast(`${l.length} sənəd jurnaldan silindi`, 2.5);
+}
 function senedKarti(d) {
-  return el('button', {type: 'button', onclick: () => senedDetal(d)},
+  const sec = secim && d.status === 'GON';
+  return el('button', {type: 'button', class: sec && secim.has(d.id) ? 'secili' : null, onclick: () => sec ? secDeyis(d) : senedDetal(d)},
+    sec ? el('span', {class: 'qutu', text: secim.has(d.id) ? '☑' : '☐'}) : null,
     el('span', null, el('div', null, d.no || d.id, el('span', {class: 'nis ' + (d.nov === 'MEXARIC' ? 'mex' : 'med'), text: NOV_AD[d.nov]}), stNisan(d)),
       el('div', {class: 'alt', text: `${tarixAz(d.tarix)} · ${d.anbar}`}),
       d.xeta && d.status !== 'GON' ? el('div', {class: 'xeta', text: d.xeta}) : null,
@@ -697,8 +714,13 @@ function jurnalCiz() {
     ] : el('div', {class: 'qeyd', text: 'Hamısı göndərilib.'}),
     el('h3', {text: 'Qaralamalar'}),
     qr.length ? el('div', {class: 'siy'}, qr.map(senedKarti)) : el('div', {class: 'qeyd', text: 'Açıq qaralama yoxdur. Malı tapıb «Mədaxil» və ya «Məxaric» basın.'}),
-    el('h3', {text: 'Göndərilmişlər'}),
+    el('div', {class: 'basliq'}, el('h3', {text: 'Göndərilmişlər'}), !gn.length ? null : secim
+      ? [el('button', {class: 'lnk', type: 'button', text: 'Hamısını seç', onclick: () => { gn.forEach(d => secim.add(d.id)); jurnalCiz(); }}),
+         el('button', {class: 'lnk', type: 'button', text: 'Ləğv', onclick: () => { secim = null; jurnalCiz(); }})]
+      : el('button', {class: 'lnk', type: 'button', text: 'Seç və sil', onclick: () => { secim = new Set(); jurnalCiz(); }})),
+    secim ? el('div', {class: 'qeyd', text: 'Jurnaldan silmək istədiyiniz sənədlərə toxunun. Sənədlər mərkəzdə qalır — yalnız bu telefondan silinir.'}) : null,
     gn.length > qy.length ? el('div', {class: 'siy'}, gn.filter(d => !qaytarilib(d)).slice(0, 60).map(senedKarti)) : el('div', {class: 'qeyd', text: 'Hələ heç nə göndərilməyib.'}),
+    secim ? el('div', {class: 'row'}, el('button', {class: 'b tehluke', type: 'button', text: `Seçilənləri sil (${secim.size})`, disabled: !secim.size, onclick: () => jurnaldanSil(secim)})) : null,
     S.giris ? el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Vəziyyəti yenilə', onclick: () => yenile()})) : null].flat());
   nisan();
 }
@@ -742,7 +764,8 @@ function senedDetal(d) {
         if (!await sorus('Bu qaralama tamamilə silinsin?', 'Sil', 'Ləğv')) return; S.sened = S.sened.filter(x => x !== d); await saxla('sened'); pdBagla(); jurnalCiz(); }}) : null,
       qr ? el('button', {class: 'b esas', type: 'button', text: 'Bitir və göndər', disabled: !d.setir.length, onclick: async () => { yaz(); pdBagla(); await hazirla(d); }}) : null,
       d.status === 'HAZ' ? el('button', {class: 'b', type: 'button', text: 'Qaralamaya qaytar', onclick: async () => { d.status = 'QAR'; await saxla('sened'); senedDetal(d); jurnalCiz(); }}) : null,
-      qaytarilib(d) ? el('button', {class: 'b esas2', type: 'button', text: 'Düzəlt və yenidən göndər', onclick: duzelt}) : null)));
+      qaytarilib(d) ? el('button', {class: 'b esas2', type: 'button', text: 'Düzəlt və yenidən göndər', onclick: duzelt}) : null),
+    d.status === 'GON' ? el('div', {class: 'row'}, el('button', {class: 'b tehluke', type: 'button', text: 'Jurnaldan sil', onclick: () => jurnaldanSil(new Set([d.id]))})) : null));
 }
 
 // ---------------------------------------------------------------- kassa rejimi: ardıcıl skan → bir sənəd (POS kimi)
