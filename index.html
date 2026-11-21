@@ -117,7 +117,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.11 · 21.11.2026';
+const SURUM = '0.3.12 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Çıxış'};
@@ -883,7 +883,7 @@ function namelum(b) {
   const aiTap = async () => {
     if (!S.ayar.gkey) { tk.replaceChildren(el('div', {class: 'qeyd', text: 'AI ilə tapmaq üçün Gemini açarı lazımdır (Ayarlar).'})); return; }
     if (navigator.onLine === false) { tk.replaceChildren(el('div', {class: 'qeyd', text: 'İnternet yoxdur.'})); return; }
-    tk.replaceChildren(el('div', {class: 'qeyd', text: 'AI internetdə axtarır…'}));
+    const dur = aiSaygac(tk, 'AI internetdə axtarır…');
     try {
       S.aiAxtarissiz = false;
       const t = await geminiSor(`Barkod (EAN/UPC): ${b}\nBu barkodun hansı məhsula aid olduğunu internetdə axtar. Yalnız mənbədə tapdığın halda cavab ver, uydurma; tapmasan yalnız TAPILMADI yaz.\n` +
@@ -893,6 +893,7 @@ function namelum(b) {
       info.replaceChildren(el('div', {class: 'ai', text: ad}), el('div', {class: 'qeyd', text: 'AI cavabıdır' + (S.aiAxtarissiz ? ' (internet axtarışı alınmadı — yaddaşdan)' : '') + ', səhv ola bilər — malı özünüz yoxlayın.'}));
       teklif(ad + ' ' + soz);
     } catch (e) { tk.replaceChildren(el('div', {class: 'xeta', text: 'AI cavab vermədi: ' + (e.message || e)})); }
+    finally { dur(); }
   };
   pdAc(el('div', null, el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Naməlum barkod'}), el('div', {class: 'alt', text: b}),
       el('div', {class: 'qeyd', text: 'Bu barkod hələ heç bir mala bağlı deyil. Malı seçin — bir dəfə bağlanır, sonra özü tanınacaq.'}), info, tk,
@@ -964,8 +965,16 @@ function gSadeXeta(r, j, model) {
   if (r.status === 403) return 'Bu açarın Gemini-yə icazəsi yoxdur.';
   return (s.split('\n')[0] || ('xəta ' + r.status)).slice(0, 200);
 }
+const AI_HEDD = 60000;                                                     // ms: bu qədər gözlənilir (21.11: pulsuz plan bəzən 20–40 san gecikir)
+const gDusunmez = {};                                                      // «düşünmə»ni söndürməyə icazə verməyən modellər
+function aiSaygac(yer, metn) {                                            // gözləyərkən saniyə göstərilir; qaytarır: dayandır()
+  const t0 = Date.now(), q = el('div', {class: 'qeyd', text: metn});
+  yer.replaceChildren(q);
+  const iv = setInterval(() => { const n = Math.round((Date.now() - t0) / 1000); q.textContent = `${metn} ${n} san` + (n >= 12 ? ' — Google-un pulsuz planı bəzən gec cavab verir' : ''); }, 1000);
+  return () => clearInterval(iv);
+}
 async function geminiSor(metn, _kohne, axtaris) {                        // axtaris: Google axtarışı aləti ilə (barkodu internetdə tapmaq üçün)
-  const acar = S.ayar.gkey;
+  const acar = S.ayar.gkey, bitme = Date.now() + (S.aiHedd || AI_HEDD);
   let siyahi = null, son = null, sinanan = '';
   const novbeti = async () => {
     if (!siyahi) siyahi = modelSirasi(await geminiModeller(acar));
@@ -975,9 +984,18 @@ async function geminiSor(metn, _kohne, axtaris) {                        // axta
   for (let n = 0; model && n < 7; n++) {
     const govde = {contents: [{parts: [{text: metn}]}], generationConfig: {temperature: 0.3}};
     if (axtaris) govde.tools = [{google_search: {}}];
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': acar}, body: JSON.stringify(govde)});
-    const j = await r.json().catch(() => ({}));
+    if (/flash/.test(model) && !gDusunmez[model]) govde.generationConfig.thinkingConfig = {thinkingBudget: 0};   // qısa cavab üçün «düşünmə» lazım deyil — 3–5 dəfə tez
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), Math.max(1000, bitme - Date.now()));
+    let r, j;
+    try {
+      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': acar}, body: JSON.stringify(govde), signal: ac.signal});
+      j = await r.json().catch(() => ({}));
+    } catch (e) {
+      if (ac.signal.aborted) throw new Error(`AI ${Math.round((S.aiHedd || AI_HEDD) / 1000)} saniyədə cavab vermədi — Google gec cavab verir. Bir az sonra yenə cəhd edin.`);
+      throw new Error('Google-a qoşulmaq olmadı — internetə baxın.');
+    } finally { clearTimeout(tm); }
+    if (r.status === 400 && govde.generationConfig.thinkingConfig && /think/i.test(String(j.error && j.error.message))) { gDusunmez[model] = true; continue; }   // bu model «düşünmə»siz işləmir
     if (r.ok) {
       if (model !== S.ayar.gmodel) { S.ayar.gmodel = model; saxla('ayar'); }
       const c = j.candidates && j.candidates[0], t = c && c.content && (c.content.parts || []).map(p => p.text || '').join('').trim();
@@ -1004,7 +1022,7 @@ async function geminiYoxla() {                                            // «M
 async function aiGoster(m, b, yer) {
   if (!S.ayar.gkey) { yer.replaceChildren(el('div', {class: 'qeyd'}, 'AI izah üçün Gemini açarı lazımdır. ', el('button', {class: 'lnk', type: 'button', text: 'Ayarlarda daxil edin', onclick: () => { pdBagla(); gorunus('ayar'); }}))); return; }
   if (navigator.onLine === false) { yer.replaceChildren(el('div', {class: 'qeyd', text: 'İnternet yoxdur.'})); return; }
-  yer.replaceChildren(el('div', {class: 'qeyd', text: 'AI cavab hazırlayır…'}));
+  const dur = aiSaygac(yer, 'AI cavab hazırlayır…');
   try {
     const off = b ? await KV.get('off:' + b) : null;
     const t = await geminiSor('Tikinti anbarındakı bu material haqqında Azərbaycan dilində qısa (3-5 cümlə) izah yaz: nədir, harada və necə işlədilir, saxlanmasında nəyə diqqət etmək lazımdır. ' +
@@ -1012,6 +1030,7 @@ async function aiGoster(m, b, yer) {
       (off ? `Açıq məhsul bazasında: ${off.ad} ${off.marka} ${off.olcu}\n` : ''));
     yer.replaceChildren(el('div', {class: 'ai', text: t}), el('div', {class: 'qeyd', text: 'AI cavabı səhv ola bilər. Model: ' + S.ayar.gmodel}));
   } catch (e) { yer.replaceChildren(el('div', {class: 'xeta', text: 'AI cavab vermədi: ' + (e.message || e)})); }
+  finally { dur(); }
 }
 
 // ---------------------------------------------------------------- sənədlər
