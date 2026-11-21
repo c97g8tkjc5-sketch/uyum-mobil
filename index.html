@@ -117,7 +117,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.13 · 21.11.2026';
+const SURUM = '0.3.14 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Çıxış'};
@@ -996,7 +996,7 @@ async function geminiSor(metn, _kohne, axtaris) {                        // axta
       if (ac.signal.aborted) throw new Error(`AI ${Math.round((S.aiHedd || AI_HEDD) / 1000)} saniyədə cavab vermədi — Google gec cavab verir. Bir az sonra yenə cəhd edin.`);
       throw new Error('Google-a qoşulmaq olmadı — internetə baxın.');
     } finally { clearTimeout(tm); }
-    if (r.status === 400 && govde.generationConfig.thinkingConfig && /think/i.test(String(j.error && j.error.message))) { gDusunmez[model] = true; continue; }   // bu model «düşünmə»siz işləmir
+    if (r.status === 400 && govde.generationConfig.thinkingConfig) { gDusunmez[model] = true; continue; }   // 21.11: bəzi modellər «düşünmə» ayarını qəbul etmir («invalid argument») — onsuz yenidən
     if (r.ok) {
       if (model !== S.ayar.gmodel) { S.ayar.gmodel = model; saxla('ayar'); }
       const c = j.candidates && j.candidates[0], t = c && c.content && (c.content.parts || []).map(p => p.text || '').join('').trim();
@@ -1006,8 +1006,8 @@ async function geminiSor(metn, _kohne, axtaris) {                        // axta
     son = {r, j}; sinanan = model;
     const limit = r.status === 429 || (j.error && j.error.status === 'RESOURCE_EXHAUSTED');
     if (axtaris && (limit || [400, 403].includes(r.status))) { axtaris = false; S.aiAxtarissiz = true; continue; }   // axtarış aləti yoxdur / limiti bitib - onsuz
-    if (limit || r.status === 404) {                                    // bu model olmur - növbətisi
-      gBlok()[model] = Date.now() + (r.status === 404 ? 24 * 3600 : Math.max(60, gGozle(j))) * 1000; saxla('ayar');
+    if (limit || r.status === 404 || r.status === 400) {                // bu model olmur - növbətisi (400: bu modelə uyğun olmayan sorğu)
+      gBlok()[model] = Date.now() + (r.status === 404 ? 24 * 3600 : r.status === 400 ? 3600 : Math.max(60, gGozle(j))) * 1000; saxla('ayar');
       model = await novbeti(); continue;
     }
     break;
