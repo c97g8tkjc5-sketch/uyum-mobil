@@ -99,7 +99,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.2 · 21.11.2026';
+const SURUM = '0.3.3 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
@@ -202,13 +202,15 @@ async function baglantiYoxla(yer) {                                       // «B
   const l = [], ua = navigator.userAgent;
   const cihaz = (/iPhone|iPad/.test(ua) ? 'iPhone/iPad, iOS ' + ((ua.match(/OS (\d+[_\d]*)/) || [])[1] || '?').replace(/_/g, '.') :
     /Android/.test(ua) ? 'Android ' + ((ua.match(/Android ([\d.]+)/) || [])[1] || '?') : 'kompüter') +
-    ' · ' + (/CriOS|Chrome/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : /Firefox|FxiOS/.test(ua) ? 'Firefox' : 'brauzer') +
+    ' · ' + (/CriOS|Chrome/.test(ua) ? 'Chrome ' + ((ua.match(/(?:Chrome|CriOS)\/(\d+)/) || [])[1] || '') : /Safari/.test(ua) ? 'Safari' : /Firefox|FxiOS/.test(ua) ? 'Firefox' : 'brauzer') +
     (navigator.standalone || matchMedia('(display-mode: standalone)').matches ? ' · ana ekrandan' : ' · brauzerdə');
   l.push(['ℹ', 'Proqram', 'Anbar Mobil ' + SURUM], ['ℹ', 'Telefon', cihaz]);
   yer.replaceChildren(el('div', {class: 'qeyd', text: 'Yoxlanır…'}));
-  let net = false;
-  try { net = (await fetch('./manifest.webmanifest?y=' + Date.now(), {cache: 'no-store'})).ok; } catch (e) {}
+  let net = false, saatFerq = 0;
+  try { const r = await fetch('./manifest.webmanifest?y=' + Date.now(), {cache: 'no-store'}); net = r.ok; const d = Date.parse(r.headers.get('Date') || ''); if (d) saatFerq = Math.round((Date.now() - d) / 60000); } catch (e) {}
   l.push([net ? '✔' : '✘', 'İnternet', net ? 'var' : 'yoxdur']);
+  const saatSehv = Math.abs(saatFerq) > 10;
+  if (net) l.push([saatSehv ? '✘' : '✔', 'Telefonun saatı', saatSehv ? `${Math.abs(saatFerq)} dəqiqə ${saatFerq > 0 ? 'irəlidir' : 'geridir'}` : 'düzdür']);
   l.push([S.qos ? '✔' : '✘', 'Mərkəzə qoşulma (QR)', S.qos ? 'var · ' + S.qos.n : 'yoxdur']);
   let merkez = null;
   if (S.qos && net) {
@@ -219,9 +221,21 @@ async function baglantiYoxla(yer) {                                       // «B
     finally { api.yoxlama = false; }
     if (merkez) l.push(['✔', 'Mərkəz', merkez]);
   }
+  let sade = null, neon = null, kenar = null;
+  if (S.qos && net && !merkez) {
+    const cat = async u => { const ac = new AbortController(), t = setTimeout(() => ac.abort(), 8000);                 // 8 san-dan çox gözləmir
+      try { await fetch(u, {mode: 'no-cors', cache: 'no-store', signal: ac.signal}); return true; } catch (e) { return false; } finally { clearTimeout(t); } };
+    [sade, neon, kenar] = await Promise.all([cat('https://' + S.qos.h + '/sql?y=' + Date.now()), cat('https://neon.tech/favicon.ico?y=' + Date.now()), cat('https://www.google.com/favicon.ico?y=' + Date.now())]);
+    l.push([sade ? '✔' : '✘', 'Mərkəzin ünvanı (sadə yoxlama)', sade ? 'çatır' : 'çatmır'], [neon ? '✔' : '✘', 'neon.tech saytı', neon ? 'açılır' : 'açılmır'],
+      [kenar ? '✔' : '✘', 'Başqa sayt (google.com)', kenar ? 'açılır' : 'açılmır']);
+  }
   l.push([S.giris ? '✔' : '•', 'Giriş', S.giris ? S.giris.me.login + ' (' + (ROL[S.giris.me.role] || S.giris.me.role) + ')' : 'daxil olunmayıb']);
   const meslehet = !net ? 'İnternet yoxdur — Wi-Fi və ya mobil interneti yoxlayın.'
     : !S.qos ? 'Telefon hələ mərkəzə qoşulmayıb. Kompüterdəki proqramda Hesab → «📱 Telefonu qoş» → buradakı «QR kodu skan et» ilə oxudun. Uzaqdasınızsa: admin həmin pəncərədə «Kodu kopyala» basıb sizə WhatsApp ilə göndərsin — linkə toxunun.'
+    : !merkez && saatSehv ? 'Telefonun tarixi/saatı səhvdir — buna görə təhlükəsiz bağlantı qurulmur. Telefonun Ayarlar → Tarix və saat → «Avtomatik» seçin, sonra yenidən yoxlayın.'
+    : !merkez && kenar === false ? 'Telefon kənar saytlara çıxa bilmir (bu şəbəkə məhduddur). Mobil internetə və ya başqa Wi-Fi-a keçib yenidən yoxlayın.'
+    : !merkez && sade === false ? 'Bu şəbəkə və ya telefon mərkəzin ünvanını (neon.tech) bağlayır. 1) Wi-Fi-dan mobil internetə (və ya əksinə) keçin. 2) Telefonda VPN və ya reklam bloklayıcı varsa söndürün. 3) Ayarlar → Şəbəkə → «Şəxsi DNS» (Private DNS) — «Avtomatik» və ya «Söndür» edin. Sonra yenidən yoxlayın.'
+    : !merkez && sade ? 'Mərkəzə çatır, amma brauzer sorğunu buraxmır — Chrome köhnədir. Play Store → Chrome → «Yenilə», sonra proqramı bağlayıb yenidən açın.'
     : !merkez ? 'İnternet var, amma mərkəzə çatmaq olmur. Wi-Fi-dan mobil internetə (və ya əksinə) keçib yenidən yoxlayın. Düzəlməsə — bu ekranın şəklini adminə göndərin.'
     : !S.giris ? 'Bağlantı qaydasındadır — «Daxil ol» basıb istifadəçi adınız və parolunuzla daxil olun.' : 'Hər şey qaydasındadır.';
   yer.replaceChildren(el('div', {class: 'kart yoxla'}, l.map(x => el('div', {class: 'sr'}, el('b', {class: x[0] === '✘' ? 'qr' : '', text: x[0]}), el('span', {text: x[1]}), el('i', {text: x[2]}))),
