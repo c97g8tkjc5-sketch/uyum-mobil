@@ -113,10 +113,15 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.7 · 21.11.2026';
+const SURUM = '0.3.8 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
-const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
+const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Çıxış'};
+const novAd = d => d.nov === 'MEDAXIL' ? 'Mədaxil' : (d.tip || 'Silinmə');         // çıxışda — növün özü (Silinmə, Satış, …)
+function cixTipleri() {                                                    // Telegram-dakı kimi: Yerdəyişmə Uyumsoft-dan gəlir, Mədaxil ayrıca
+  const l = ((S.db && S.db.tipler) || []).filter(t => t && t !== 'Mədaxil' && t !== 'Yerdəyişmə' && t !== 'Silinmə');
+  return ['Silinmə', ...l];
+}
 const $ = s => document.querySelector(s);
 
 function el(tag, at, ...ic) {
@@ -547,7 +552,7 @@ function malKarti(m, barkod) {
       el('div', {class: 'qeyd', text: `Qalıq ${vaxtQisa(S.db.vaxt)} vəziyyətinədir.`})),
     el('div', {class: 'row'},
       el('button', {class: 'b esas', type: 'button', text: 'Mədaxil', onclick: () => emForm(m, 'MEDAXIL', barkod)}),
-      el('button', {class: 'b esas2', type: 'button', text: 'Məxaric', onclick: () => emForm(m, 'MEXARIC', barkod)})),
+      el('button', {class: 'b esas2', type: 'button', text: 'Çıxış', onclick: () => emForm(m, 'MEXARIC', barkod)})),
     el('div', {class: 'row'},
       el('button', {class: 'b', type: 'button', text: 'İnternet', onclick: () => offGoster(bk, info)}),
       el('a', {class: 'b', href: 'https://www.google.com/search?q=' + encodeURIComponent(bk || m.a), target: '_blank', rel: 'noopener', text: 'Google'}),
@@ -873,10 +878,11 @@ async function aiGoster(m, b, yer) {
 }
 
 // ---------------------------------------------------------------- sənədlər
-function qaralama(nov, anbar, yarat) {
-  let d = S.sened.find(x => x.status === 'QAR' && x.nov === nov && x.anbar === anbar && !x.no);
+function qaralama(nov, anbar, yarat, tip) {                               // bir sənəd = bir növ + bir anbar (çıxışda növlər ayrı sənədlərdir)
+  const t = nov === 'MEDAXIL' ? 'Mədaxil' : (tip || 'Silinmə');
+  let d = S.sened.find(x => x.status === 'QAR' && x.nov === nov && x.anbar === anbar && !x.no && (nov === 'MEDAXIL' || (x.tip || 'Silinmə') === t));
   if (!d && yarat) {
-    d = {id: 'D' + String(++S.ayar.sayac).padStart(6, '0'), nov, tip: nov === 'MEDAXIL' ? 'Mədaxil' : 'Silinmə', anbar, tarix: bugun(), sened: '', kont: '', aciq: '',
+    d = {id: 'D' + String(++S.ayar.sayac).padStart(6, '0'), nov, tip: t, anbar, tarix: bugun(), sened: '', kont: '', aciq: '',
       yaradildi: indi(), status: 'QAR', n: 0, setir: []};
     S.sened.unshift(d); saxla('ayar');
   }
@@ -893,36 +899,61 @@ function emForm(m, nov, barkod) {
   if (!yazAnbar().length) { toast('Sənəd yazmaq hüququnuz yoxdur', 4); return; }
   const cix = nov === 'MEXARIC', sus = susAnbar(m, nov);
   const anb = el('select', null, yazAnbar().map(a => el('option', {value: a, text: a, selected: a === sus})));
+  const tl = cixTipleri(), tip = el('select', null, tl.map(t => el('option', {value: t, text: t, selected: t === (tl.includes(S.ayar.sonTip) ? S.ayar.sonTip : 'Silinmə')})));
+  let sayim = false;                                                       // silinmə sayımla: faktiki qalıq yazılır, ferq silinir (Telegram-dakı kimi)
   const miq = el('input', {inputmode: 'decimal', placeholder: '0', autocomplete: 'off'});
-  const tey = el('input', {placeholder: cix ? 'Hara / nə üçün' : 'Qeyd (istəyə görə)', list: cix ? 'dlTey' : null, autocomplete: 'off'});
+  const tey = el('input', {placeholder: 'Hara / nə üçün', list: cix ? 'dlTey' : null, autocomplete: 'off'});
   const kont = el('input', {placeholder: 'Kimdən gəlib (istəyə görə)', list: 'dlKont', autocomplete: 'off'});
   const sno = el('input', {placeholder: 'Qaimə № (istəyə görə)', autocomplete: 'off'});
-  const qal = el('div', {class: 'qeyd'}), xeta = el('div', {class: 'xeta'});
+  const qal = el('div', {class: 'qeyd'}), xeta = el('div', {class: 'xeta'}), ferq = el('div', {class: 'okm'});
+  const lMiq = el('label', {class: 'sahe'}), lTey = el('label', {class: 'sahe'}), rejim = el('div', {class: 'row filt'}), lTip = el('label', {class: 'sahe'}, 'Növ', tip);
   const movcud = a => ((m.q || {})[S.db.anbarlar.indexOf(a)] || 0) + (telFerq(m.k)[a] || 0);
+  const silinecek = () => { const f = ededOxu(miq.value); return isFinite(f) && miq.value.trim() ? Math.round((movcud(anb.value) - f) * 1000) / 1000 : NaN; };
   const yenile = () => {
-    qal.textContent = `Bu anbarda: ${say(movcud(anb.value))} ${m.v || ''}`;
-    const d = qaralama(nov, anb.value, false);
+    const sil = cix && tip.value === 'Silinmə'; if (!sil) sayim = false;
+    const sis = (m.q || {})[S.db.anbarlar.indexOf(anb.value)] || 0, tel = telFerq(m.k)[anb.value] || 0;
+    qal.textContent = `Bu anbarda: ${say(movcud(anb.value))} ${m.v || ''}` + (tel ? ` (mərkəzdə ${say(sis)}, telefondakı sənədlər ${tel > 0 ? '+' : '−'}${say(Math.abs(tel))})` : '');
+    lMiq.replaceChildren(sayim ? 'Faktiki qalıq — saydığınız' + (m.v ? ' (' + m.v + ')' : '') : `Miqdar${m.v ? ' (' + m.v + ')' : ''}`, miq);
+    rejim.hidden = !sil;
+    rejim.replaceChildren(el('button', {class: 'b' + (sayim ? '' : ' sec'), type: 'button', text: 'Miqdarla', onclick: () => { sayim = false; yenile(); }}),
+      el('button', {class: 'b' + (sayim ? ' sec' : ''), type: 'button', text: 'Sayımla', onclick: () => { sayim = true; yenile(); miq.focus(); }}));
+    tey.placeholder = sil ? 'Səbəb / hara (məs: yararsız, 1-ci blok)' : cix ? 'Hara / kimə / nə üçün' : 'Qeyd (istəyə görə)';
+    lTey.replaceChildren(sil ? 'Səbəb / təyinat' : cix ? 'Təyinat' : 'Qeyd', tey);
+    const x = silinecek();
+    ferq.textContent = sayim && isFinite(x) ? (x > 1e-9 ? `Silinəcək: ${say(x)} ${m.v || ''}` : x < -1e-9 ? '' : 'Fərq yoxdur') : '';
+    const d = qaralama(nov, anb.value, false, tip.value);
     if (!cix && d) { kont.value = d.kont; sno.value = d.sened; }
   };
-  anb.addEventListener('change', yenile); yenile();
+  anb.addEventListener('change', yenile); tip.addEventListener('change', yenile); miq.addEventListener('input', yenile); yenile();
   const elave = async () => {
-    const x = ededOxu(miq.value); xeta.textContent = '';
+    let x = ededOxu(miq.value), fakt = null; xeta.textContent = '';
+    if (sayim) {
+      const q = movcud(anb.value);
+      if (!(x >= 0) || !miq.value.trim()) { xeta.textContent = 'Saydığınız faktiki qalığı yazın (0 da ola bilər).'; miq.focus(); return; }
+      if (x > q + 1e-9) { xeta.textContent = `Faktiki qalıq (${say(x)}) sistemdəkindən (${say(q)}) çoxdur — silinmə yalnız azalma üçündür. Artıq varsa, «Mədaxil» edin.`; miq.focus(); return; }
+      if (q - x <= 1e-9) { pdBagla(); toast('Fərq yoxdur — silinmə sətri yaradılmadı', 3); return; }
+      fakt = x; x = Math.round((q - x) * 1000) / 1000;
+    }
     if (!(x > 0)) { xeta.textContent = 'Miqdarı yazın (sıfırdan böyük).'; miq.focus(); return; }
-    if (cix && !tey.value.trim()) { xeta.textContent = 'Təyinatı yazın: hara və ya nə üçün çıxır.'; tey.focus(); return; }
-    if (cix && x > movcud(anb.value) + 1e-9 && !await sorus(`Bu anbarda cəmi ${say(movcud(anb.value))} ${m.v || ''} var, siz ${say(x)} yazırsınız.\n\nTəsdiqdə belə məxaric qəbul olunmayacaq. Yenə də yazılsın?`, 'Yaz', 'Düzəlt')) return;
-    const d = qaralama(nov, anb.value, true);
+    if (cix && !tey.value.trim()) { xeta.textContent = tip.value === 'Silinmə' ? 'Səbəbi yazın: niyə / hara silinir.' : 'Təyinatı yazın: hara, kimə və ya nə üçün çıxır.'; tey.focus(); return; }
+    if (cix && x > movcud(anb.value) + 1e-9 && !await sorus(`Bu anbarda cəmi ${say(movcud(anb.value))} ${m.v || ''} var, siz ${say(x)} yazırsınız.\n\nTəsdiqdə belə çıxış qəbul olunmayacaq. Yenə də yazılsın?`, 'Yaz', 'Düzəlt')) return;
+    const d = qaralama(nov, anb.value, true, tip.value);
     if (!cix) { d.kont = kont.value.trim(); d.sened = sno.value.trim(); }
+    if (cix) S.ayar.sonTip = tip.value;
     d.n = (d.n || 0) + 1;
-    d.setir.push({k: m.k, a: m.a, v: m.v || '', m: x, t: tey.value.trim(), b: barkod || '', uid: d.id + '-' + d.n});
-    await saxla('sened'); nisan(); pdBagla();
-    toast(`${NOV_AD[nov]} qaralamasına yazıldı: ${say(x)} ${m.v || ''} (${d.setir.length} sətir)`, 3.2);
+    const st = {k: m.k, a: m.a, v: m.v || '', m: x, t: tey.value.trim(), b: barkod || '', uid: d.id + '-' + d.n};
+    if (fakt != null) st.f = fakt;
+    d.setir.push(st);
+    await saxla('sened'); saxla('ayar'); nisan(); pdBagla();
+    toast(`${novAd(d)} qaralamasına yazıldı: ${say(x)} ${m.v || ''}` + (fakt != null ? ` (sayım: ${say(fakt)})` : '') + ` · ${d.setir.length} sətir`, 3.2);
     if ($('#v-jurnal').classList.contains('sec')) jurnalCiz();
   };
   pdAc(el('form', {onsubmit: e => { e.preventDefault(); elave(); }},
     el('div', {class: 'kart'}, el('div', {class: 'ad'}, m.a, el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: NOV_AD[nov]})), el('div', {class: 'alt', text: m.k + ' · ' + (m.v || '—')}),
       el('label', {class: 'sahe'}, 'Anbar', anb), qal,
-      el('label', {class: 'sahe'}, `Miqdar${m.v ? ' (' + m.v + ')' : ''}`, miq),
-      el('label', {class: 'sahe'}, cix ? 'Təyinat' : 'Qeyd', tey),
+      cix ? [lTip, rejim] : null,
+      lMiq, ferq,
+      lTey,
       cix ? null : [el('label', {class: 'sahe'}, 'Kontragent', kont), el('label', {class: 'sahe'}, 'Sənəd №', sno)],
       xeta),
     el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Geri', onclick: () => malKarti(m, barkod)}),
@@ -952,7 +983,7 @@ function senedKarti(d) {
   const sec = secim && d.status === 'GON';
   return el('button', {type: 'button', class: sec && secim.has(d.id) ? 'secili' : null, onclick: () => sec ? secDeyis(d) : senedDetal(d)},
     sec ? el('span', {class: 'qutu', text: secim.has(d.id) ? '☑' : '☐'}) : null,
-    el('span', null, el('div', null, d.no || d.id, el('span', {class: 'nis ' + (d.nov === 'MEXARIC' ? 'mex' : 'med'), text: NOV_AD[d.nov]}), stNisan(d)),
+    el('span', null, el('div', null, d.no || d.id, el('span', {class: 'nis ' + (d.nov === 'MEXARIC' ? 'mex' : 'med'), text: novAd(d)}), stNisan(d)),
       el('div', {class: 'alt', text: `${tarixAz(d.tarix)} · ${d.anbar}`}),
       d.xeta && d.status !== 'GON' ? el('div', {class: 'xeta', text: d.xeta}) : null,
       d.status === 'GON' && d.serh ? el('div', {class: 'alt', text: 'Şərh: ' + d.serh}) : null),
@@ -970,7 +1001,7 @@ function jurnalCiz() {
       el('div', {class: 'row'}, el('button', {class: 'b esas', type: 'button', text: 'İndi göndər', onclick: () => gonder()}))
     ] : el('div', {class: 'qeyd', text: 'Hamısı göndərilib.'}),
     el('h3', {text: 'Qaralamalar'}),
-    qr.length ? el('div', {class: 'siy'}, qr.map(senedKarti)) : el('div', {class: 'qeyd', text: 'Açıq qaralama yoxdur. Malı tapıb «Mədaxil» və ya «Məxaric» basın.'}),
+    qr.length ? el('div', {class: 'siy'}, qr.map(senedKarti)) : el('div', {class: 'qeyd', text: 'Açıq qaralama yoxdur. Malı tapıb «Mədaxil» və ya «Çıxış» basın.'}),
     el('div', {class: 'basliq'}, el('h3', {text: 'Göndərilmişlər'}), !gn.length ? null : secim
       ? [el('button', {class: 'lnk', type: 'button', text: 'Hamısını seç', onclick: () => { gn.forEach(d => secim.add(d.id)); jurnalCiz(); }}),
          el('button', {class: 'lnk', type: 'button', text: 'Ləğv', onclick: () => { secim = null; jurnalCiz(); }})]
@@ -992,12 +1023,14 @@ async function hazirla(d) {                                               // qar
 function senedDetal(d) {
   const qr = d.status === 'QAR', cix = d.nov === 'MEXARIC';
   const tar = el('input', {type: 'date', value: d.tarix, max: bugun(), disabled: !qr});
-  const tip = el('select', {disabled: !qr}, ((S.db && S.db.tipler) || ['Silinmə']).filter(t => t !== 'Mədaxil').map(t => el('option', {value: t, text: t, selected: t === (d.tip || 'Silinmə')})));
+  const tl = cixTipleri(); if (d.tip && !tl.includes(d.tip)) tl.push(d.tip);
+  const tip = el('select', {disabled: !qr}, tl.map(t => el('option', {value: t, text: t, selected: t === (d.tip || 'Silinmə')})));
   const sno = el('input', {value: d.sened, placeholder: 'Qaimə №', disabled: !qr, autocomplete: 'off'});
   const kont = el('input', {value: d.kont, placeholder: 'Kontragent', list: 'dlKont', disabled: !qr, autocomplete: 'off'});
   const aciq = el('input', {value: d.aciq, placeholder: 'Ümumi qeyd', disabled: !qr, autocomplete: 'off'});
   const yaz = () => { if (!qr) return; d.tarix = tar.value || bugun(); if (cix) d.tip = tip.value; d.sened = sno.value.trim(); d.kont = kont.value.trim(); d.aciq = aciq.value.trim(); saxla('sened'); };
-  [tar, tip, sno, kont, aciq].forEach(x => x.addEventListener('change', yaz));
+  [tar, sno, kont, aciq].forEach(x => x.addEventListener('change', yaz));
+  tip.addEventListener('change', () => { yaz(); senedDetal(d); jurnalCiz(); });
   const sil = async i => { if (!await sorus(`«${d.setir[i].a}» sətri silinsin?`, 'Sil', 'Ləğv')) return; d.setir.splice(i, 1); await saxla('sened'); senedDetal(d); nisan(); };
   const miq = async i => { const s = d.setir[i], x = await miqdarSorus(`${s.a}\nMiqdar${s.v ? ' (' + s.v + ')' : ''}:`, s.m); if (x == null || !(x > 0)) return; s.m = Math.round(x * 1000) / 1000; await saxla('sened'); senedDetal(d); };
   const duzelt = async () => {                                            // qaytarılan sənəd → qaralama (eyni nömrə), düzəlişdən sonra yeni versiya kimi gedir
@@ -1005,14 +1038,14 @@ function senedDetal(d) {
     d.status = 'QAR'; d.xeta = ''; await saxla('sened'); senedDetal(d); jurnalCiz();
   };
   pdAc(el('div', null,
-    el('div', {class: 'kart'}, el('div', {class: 'ad'}, d.no || d.id, el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: NOV_AD[d.nov]}), stNisan(d)),
+    el('div', {class: 'kart'}, el('div', {class: 'ad'}, d.no || d.id, el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: novAd(d)}), stNisan(d)),
       el('div', {class: 'alt', text: d.anbar + (d.no && qr ? ' · düzəliş (yeni versiya kimi gedəcək)' : '')}),
       d.status === 'GON' && d.serh ? el('div', {class: 'qeyd', text: 'Təsdiqçinin şərhi: ' + d.serh}) : null,
       d.status === 'GON' && d.icra && /xəta/i.test(d.st || '') ? el('div', {class: 'xeta', text: d.icra.replace(/^XETA\|/, '')}) : null,
       d.xeta && d.status !== 'GON' ? el('div', {class: 'xeta', text: 'Mərkəz qəbul etmədi: ' + d.xeta}) : null,
       el('label', {class: 'sahe'}, 'Tarix', tar), cix ? el('label', {class: 'sahe'}, 'Əməliyyat növü', tip) : null,
       cix ? null : [el('label', {class: 'sahe'}, 'Sənəd №', sno), el('label', {class: 'sahe'}, 'Kontragent', kont)], el('label', {class: 'sahe'}, 'Qeyd', aciq)),
-    el('div', {class: 'kart'}, d.setir.length ? d.setir.map((s, i) => el('div', {class: 'sr'}, el('span', null, el('div', {text: s.a}), el('div', {class: 'alt', text: s.k + (s.t ? ' · ' + s.t : '')})),
+    el('div', {class: 'kart'}, d.setir.length ? d.setir.map((s, i) => el('div', {class: 'sr'}, el('span', null, el('div', {text: s.a}), el('div', {class: 'alt', text: s.k + (s.f != null ? ` · sayım: faktiki ${say(s.f)}` : '') + (s.t ? ' · ' + s.t : '')})),
       qr ? el('button', {class: 'mqs', type: 'button', text: say(s.m) + ' ' + s.v, onclick: () => miq(i)}) : el('b', {text: say(s.m) + ' ' + s.v}),
       qr ? el('button', {class: 'lnk', type: 'button', text: 'sil', onclick: () => sil(i)}) : null)) : el('div', {class: 'qeyd', text: 'Sətir yoxdur.'})),
     el('div', {class: 'row'},
@@ -1040,18 +1073,21 @@ function kassaQur() {
   if (!S.db) { toast('Əvvəlcə mərkəzə qoşulub daxil olun (Ayarlar)', 4); return; }
   if (!yazAnbar().length) { toast('Sənəd yazmaq hüququnuz yoxdur', 4); return; }
   const sus = S.ayar.anbar && yazAnbar().includes(S.ayar.anbar) ? S.ayar.anbar : yazAnbar()[0];
-  const nov = el('select', null, el('option', {value: 'MEXARIC', text: 'Məxaric'}), el('option', {value: 'MEDAXIL', text: 'Mədaxil'}));
+  const nov = el('select', null, el('option', {value: 'MEXARIC', text: 'Çıxış'}), el('option', {value: 'MEDAXIL', text: 'Mədaxil'}));
+  const tl = cixTipleri(), tip = el('select', null, tl.map(t => el('option', {value: t, text: t, selected: t === (tl.includes(S.ayar.sonTip) ? S.ayar.sonTip : 'Silinmə')})));
+  const lTip = el('label', {class: 'sahe'}, 'Çıxış növü', tip);
   const anb = el('select', null, yazAnbar().map(a => el('option', {value: a, text: a, selected: a === sus})));
   const tey = el('input', {placeholder: 'Hara / nə üçün', list: 'dlTey', autocomplete: 'off'});
   const kont = el('input', {placeholder: 'Kimdən gəlib (istəyə görə)', list: 'dlKont', autocomplete: 'off'}), sno = el('input', {placeholder: 'Qaimə № (istəyə görə)', autocomplete: 'off'});
   const lt = el('label', {class: 'sahe'}, 'Təyinat (bütün sətirlər üçün)', tey), lk = el('label', {class: 'sahe'}, 'Kontragent', kont), ls = el('label', {class: 'sahe'}, 'Sənəd №', sno), xeta = el('div', {class: 'xeta'});
-  const yenile = () => { const c = nov.value === 'MEXARIC'; lt.hidden = !c; lk.hidden = c; ls.hidden = c; };
+  const yenile = () => { const c = nov.value === 'MEXARIC'; lt.hidden = !c; lTip.hidden = !c; lk.hidden = c; ls.hidden = c; };
   nov.addEventListener('change', yenile); yenile();
   const basla = async () => {
     const c = nov.value === 'MEXARIC';
     if (c && !tey.value.trim()) { xeta.textContent = 'Təyinatı yazın: hara və ya nə üçün çıxır.'; tey.focus(); return; }
-    const d = qaralama(nov.value, anb.value, true);
+    const d = qaralama(nov.value, anb.value, true, c ? tip.value : '');
     if (!c) { if (kont.value.trim()) d.kont = kont.value.trim(); if (sno.value.trim()) d.sened = sno.value.trim(); }
+    if (c) { S.ayar.sonTip = tip.value; saxla('ayar'); }
     S.kassa = {id: d.id, nov: nov.value, anbar: anb.value, tey: c ? tey.value.trim() : ''};
     await saxla('sened'); await saxla('kassa'); pdBagla(); gorunus('skan'); ciz();
     if (!K.aktiv) kamAc();
@@ -1059,7 +1095,7 @@ function kassaQur() {
   pdAc(el('form', {onsubmit: e => { e.preventDefault(); basla(); }},
     el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Kassa rejimi'}),
       el('div', {class: 'qeyd', text: 'Növü və anbarı bir dəfə seçin. Sonra hər skan siyahıya əlavə olunur; eyni malı təkrar skan edəndə miqdar artır.'}),
-      el('label', {class: 'sahe'}, 'Növ', nov), el('label', {class: 'sahe'}, 'Anbar', anb), lt, lk, ls, xeta),
+      el('label', {class: 'sahe'}, 'Növ', nov), lTip, el('label', {class: 'sahe'}, 'Anbar', anb), lt, lk, ls, xeta),
     el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Ləğv', onclick: pdBagla}), el('button', {class: 'b esas', text: 'Başla'}))));
 }
 async function kassaElave(m, e, barkod) {
@@ -1095,7 +1131,7 @@ async function kassaMiqdar(d, s) {
 }
 async function kassaBitir() {
   const d = kassaSened(); if (!d || !d.setir.length) return;
-  if (!await sorus(`${NOV_AD[d.nov]} sənədi bitirilsin?\n${d.setir.length} sətir · ${d.anbar}`, 'Bitir', 'Hələ yox')) return;
+  if (!await sorus(`${novAd(d)} sənədi bitirilsin?\n${d.setir.length} sətir · ${d.anbar}`, 'Bitir', 'Hələ yox')) return;
   S.kassa = null; await saxla('kassa'); kamBagla(); ciz();
   await hazirla(d);
 }
@@ -1111,7 +1147,7 @@ function kassaCiz() {
   if (!S.kassa) { y.replaceChildren(el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Kassa rejimi — ardıcıl skan', onclick: kassaQur}))); return; }
   const k = S.kassa, cix = k.nov === 'MEXARIC';
   y.replaceChildren(el('div', {class: 'kart'},
-    el('div', {class: 'ad'}, 'Kassa', el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: NOV_AD[k.nov]}), el('span', {class: 'nis', text: d.setir.length + ' sətir'})),
+    el('div', {class: 'ad'}, 'Kassa', el('span', {class: 'nis ' + (cix ? 'mex' : 'med'), text: novAd(d)}), el('span', {class: 'nis', text: d.setir.length + ' sətir'})),
     el('div', {class: 'alt', text: k.anbar + (cix ? ' · ' + k.tey : '')}),
     d.setir.length ? d.setir.slice().reverse().map(s => kassaSetri(d, s)) : el('div', {class: 'qeyd', text: 'Barkodu skan edin — mal bura düşəcək. Barkodsuz malı «Axtar» bölməsindən seçin.'}),
     el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Çıx', onclick: kassaCix}),
@@ -1142,7 +1178,7 @@ async function gonder(sakit) {
     for (const d of hz) {
       if (!d.uuid) d.uuid = yeniUuid();
       const p = {nov: d.nov, tip: d.tip || (d.nov === 'MEDAXIL' ? 'Mədaxil' : 'Silinmə'), anbar: d.anbar, tarix: d.tarix, sened: d.sened, kont: d.kont, aciq: d.aciq,
-        cihaz: S.ayar.cihaz, lines: d.setir.map(s => ({mal: s.a, kod: s.k, vah: s.v, miq: String(s.m), tey: s.t}))};
+        cihaz: S.ayar.cihaz, lines: d.setir.map(s => ({mal: s.a, kod: s.k, vah: s.v, miq: String(s.m), fakt: s.f != null && d.tip === 'Silinmə' ? String(s.f) : '', tey: s.t}))};   // sayım yalnız silinmədə
       if (d.no) p.no = d.no;
       const r = await api('api_submit', tok(), d.uuid, 'mob_daxil', p, new Date().toISOString()), x = (r && r.result) || {};
       if (x.ok) { Object.assign(d, {status: 'GON', no: x.no, ver: x.ver, st: x.ver > 1 ? 'Yenidən göndərilib' : 'Təsdiq gözləyir', serh: '', icra: '', gonderildi: indi(), xeta: ''}); ok++; }
