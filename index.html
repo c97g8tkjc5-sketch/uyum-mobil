@@ -60,6 +60,8 @@ label.sahe { display: block; font-size: 13px; color: var(--boz); margin: 10px 0 
 .filt { flex-wrap: wrap; margin: 8px 0; } .filt .b { min-height: 38px; flex: 1 0 auto; font-size: 14px; padding: 0 10px; } .filt .b.sec { background: var(--y); border-color: var(--y); color: #fff; font-weight: 600; }
 .okm { color: #1f8a4c; font-weight: 600; margin: 8px 0; } @media (prefers-color-scheme: dark) { .okm { color: #5fd08f; } }
 .tez { gap: 6px; } .tez .b { min-height: 38px; font-size: 14px; padding: 0 8px; }
+.her .gir { color: #1f8a4c; } .her .cix { color: var(--qr); } @media (prefers-color-scheme: dark) { .her .gir { color: #5fd08f; } }
+.her .sr { align-items: flex-start; } .her .sr b { white-space: nowrap; } .cemh { font-size: 14px; margin: 6px 0; }
 .siy .nis { white-space: normal; max-width: 100%; }
 .yoxla .sr b { width: 22px; flex: none; } .yoxla .sr span { flex: none; width: 42%; } .yoxla .sr i { flex: 1; font-style: normal; color: var(--boz); overflow-wrap: anywhere; }                          /* uzun vəziyyət («Təsdiq edildi və icra olundu») dar ekranda sətrə bölünür */
 .siy > button.secili { background: rgba(42, 148, 125, .16); } .qutu { font-size: 22px; line-height: 1; color: var(--y); flex: none; }
@@ -91,6 +93,7 @@ textarea { min-height: 70px; resize: vertical; }
     <div id="axtarSiy" class="siy"></div>
   </section>
   <section id="v-qaliq" class="v">
+    <div class="row"><button id="bHereket" class="b" type="button">📋 Hərəkətlər (filtr)</button></div>
     <select id="qAnbar" aria-label="Anbar"></select>
     <div id="qFilt" class="row filt"></div>
     <input id="iQaliq" type="search" placeholder="Bu anbarda axtar" autocomplete="off" enterkeyhint="search">
@@ -113,7 +116,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.8 · 21.11.2026';
+const SURUM = '0.3.9 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Çıxış'};
@@ -558,7 +561,7 @@ function malKarti(m, barkod) {
       el('a', {class: 'b', href: 'https://www.google.com/search?q=' + encodeURIComponent(bk || m.a), target: '_blank', rel: 'noopener', text: 'Google'}),
       el('button', {class: 'b', type: 'button', text: 'AI izah', onclick: () => aiGoster(m, bk, info)})),
     info,
-    el('div', {class: 'row'}, bl.length
+    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: '📋 Tarixçə', onclick: () => tarixce(m, barkod)}), bl.length
       ? el('button', {class: 'b', type: 'button', text: '🖨 Etiket çap et', onclick: () => capForm(m, bk)})
       : el('button', {class: 'b', type: 'button', text: 'Barkod ver', onclick: async () => { const b = await barkodVer(m); if (b) capForm(m, b, `Barkod verildi: ${b}`); }})),
     el('div', {class: 'qeyd'}, 'Barkod: ' + (bl.length ? bl.join(', ') : 'bağlanmayıb') + '. ',
@@ -686,6 +689,65 @@ async function topluBarkod(mallar) {
     try { await api('api_cap_elave', tok(), {barkod: b, say: 1, cihaz: S.ayar.cihaz}); ok++; } catch (e) { toast(e.message, 5); break; }
   }
   if (ok) toast(`${ok} etiket çapa göndərildi — kompüter çap edəcək`, 4);
+}
+
+// ---------------------------------------------------------------- stok hərəkətləri / malın tarixçəsi (Telegram-dakı kimi; mərkəz sql/026)
+const anbarQisa = a => String(a || '').split('-')[0];
+function hereketSetri(x, malGoster) {                                      // [row, tarix, anbar, növ, sənəd, kontragent, mal, kod, vahid, gəlir, çıxır, təyinat, şərh, H]
+  const g = +x[9] || 0, c = +x[10] || 0;
+  return el('div', {class: 'sr'},
+    el('span', null, el('div', {text: [tarixAz(x[1]) || 'tarixsiz', anbarQisa(x[2]), x[3], x[4]].filter(Boolean).join(' · ')}),
+      malGoster ? el('div', {text: x[6]}) : null,
+      [x[5], x[11], x[12]].some(Boolean) ? el('div', {class: 'alt', text: [x[5], x[11], x[12]].filter(Boolean).join(' · ')}) : null),
+    el('b', {class: g ? 'gir' : 'cix', text: (g ? '+' + say(g) : '−' + say(c)) + (x[8] ? ' ' + x[8] : '')}));
+}
+async function hereketYukle(p, yer, malGoster) {                            // nəticə + cəmlər + «Daha çox»
+  if (!S.giris) { yer.replaceChildren(el('div', {class: 'qeyd', text: 'Əvvəlcə daxil olun (Ayarlar).'})); return; }
+  if (navigator.onLine === false) { yer.replaceChildren(el('div', {class: 'qeyd', text: 'Hərəkətlər üçün internet lazımdır.'})); return; }
+  yer.replaceChildren(el('div', {class: 'qeyd', text: 'Yüklənir…'}));
+  let r;
+  try { r = await api('api_mobil_hereket', tok(), p); } catch (e) { yer.replaceChildren(el('div', {class: 'xeta', text: e.message})); return; }
+  const siy = el('div', {class: 'her'}), dav = el('div', {class: 'row'});
+  const elave = r => {
+    siy.append(...r.rows.map(x => hereketSetri(x, malGoster)));
+    dav.replaceChildren(...(r.devam ? [el('button', {class: 'b', type: 'button', text: 'Daha çox', onclick: async e => {
+      e.target.disabled = true; const son = r.rows[r.rows.length - 1];
+      try { elave(await api('api_mobil_hereket', tok(), Object.assign({}, p, {evvel: [son[1], son[0]]}))); } catch (x) { toast(x.message, 4); e.target.disabled = false; }
+    }})] : []));
+  };
+  const c = r.cem || {};
+  yer.replaceChildren(el('div', {class: 'cemh'}, c.n ? [`${c.n} əməliyyat`, +c.g ? [' · ', el('b', {class: 'gir', text: '+' + say(+c.g)}), ' gəlib'] : null,
+    +c.c ? [' · ', el('b', {class: 'cix', text: '−' + say(+c.c)}), ' çıxıb'] : null] : 'Bu seçimdə hərəkət yoxdur.'), siy, dav);
+  yer.querySelector('.cemh').classList.add('her');
+  elave(r);
+}
+function tarixce(m, barkod) {
+  const yer = el('div');
+  pdAc(el('div', null, el('div', {class: 'kart'}, el('div', {class: 'ad', text: m.a}), el('div', {class: 'alt', text: m.k + ' · tarixçə (ən yenisi yuxarıda)'}), yer),
+    el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Geri', onclick: () => malKarti(m, barkod || '')}))));
+  hereketYukle({kod: m.k, limit: 50}, yer, false);
+}
+function hereketForm() {
+  if (!S.db) { toast('Əvvəlcə mərkəzə qoşulub daxil olun (Ayarlar)', 3.5); return; }
+  const f = S.ayar.herF || {};
+  const ay = new Date(Date.now() - 30 * 864e5), t1d = `${ay.getFullYear()}-${pad(ay.getMonth() + 1)}-${pad(ay.getDate())}`;
+  const anb = el('select', null, el('option', {value: '', text: 'Bütün anbarlarım'}), S.db.anbarlar.map(a => el('option', {value: a, text: a, selected: a === f.anbar})));
+  const tip = el('select', null, el('option', {value: '', text: 'Bütün növlər'}), (S.db.tipler || []).map(t => el('option', {value: t, text: t, selected: t === f.tip})));
+  const t1 = el('input', {type: 'date', value: t1d, max: bugun()}), t2 = el('input', {type: 'date', value: bugun(), max: bugun()});
+  const sen = el('input', {placeholder: 'Sənəd № (hissəsi də olar)', autocomplete: 'off'}), soz = el('input', {placeholder: 'Söz: mal, kontragent, təyinat, şərh', autocomplete: 'off'});
+  const yer = el('div');
+  const goster = () => {
+    S.ayar.herF = {anbar: anb.value, tip: tip.value}; saxla('ayar');
+    hereketYukle({anbar: anb.value, tip: tip.value, t1: t1.value, t2: t2.value, sened: sen.value.trim(), soz: soz.value.trim(), limit: 100}, yer, true);
+  };
+  pdAc(el('form', {onsubmit: e => { e.preventDefault(); goster(); }},
+    el('div', {class: 'kart'}, el('div', {class: 'ad', text: 'Stok hərəkətləri'}),
+      el('label', {class: 'sahe'}, 'Anbar', anb), el('label', {class: 'sahe'}, 'Növ', tip),
+      el('div', {class: 'row'}, el('label', {class: 'sahe'}, 'Tarixdən', t1), el('label', {class: 'sahe'}, 'Tarixədək', t2)),
+      el('label', {class: 'sahe'}, 'Sənəd №', sen), el('label', {class: 'sahe'}, 'Söz', soz),
+      el('div', {class: 'row'}, el('button', {class: 'b esas', text: 'Göstər'}))),
+    el('div', {class: 'kart'}, yer)));
+  goster();
 }
 
 const EMSAL_AD = 'Bir skan neçə vahid sayılsın? (qutudursa — içindəki say)';
@@ -1299,6 +1361,7 @@ $('#fSekil').addEventListener('change', e => { const f = e.target.files[0]; if (
 $('#fKod').addEventListener('submit', e => { e.preventDefault(); const b = $('#iKod').value.trim(); if (b) { $('#iKod').value = ''; $('#iKod').blur(); kodAc(b); } });
 $('#iAxtar').addEventListener('input', axtarCiz);
 $('#iQaliq').addEventListener('input', qaliqCiz);
+$('#bHereket').addEventListener('click', hereketForm);
 $('#qAnbar').addEventListener('change', () => { S.ayar.qAnbar = S.db.anbarlar[+$('#qAnbar').value]; saxla('ayar'); qaliqCiz(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && K.aktiv) kamBagla();
