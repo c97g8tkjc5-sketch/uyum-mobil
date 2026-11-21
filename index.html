@@ -101,7 +101,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.5 · 21.11.2026';
+const SURUM = '0.3.6 · 21.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Məxaric'};
@@ -655,26 +655,68 @@ async function geminiModeller(acar) {
   return (j.models || []).filter(x => (x.supportedGenerationMethods || []).includes('generateContent')).map(x => String(x.name).replace(/^models\//, ''))
     .filter(n => /^gemini-/.test(n) && !/(image|tts|audio|live|embedding|robotics|computer|learnlm|exp|preview)/.test(n));
 }
-function enYaxsiModel(l) {
-  const f = l.filter(n => /flash/.test(n) && !/lite/.test(n));
-  return (f.length ? f : l).slice().sort((a, b) => b.localeCompare(a, 'en', {numeric: true}))[0] || '';
+function modelSirasi(l) {                                             // üstünlük: flash → flash-lite → qalanı; hər qrupda ən yenisi əvvəl
+  const yeni = a => a.slice().sort((x, y) => y.localeCompare(x, 'en', {numeric: true}));
+  const f = l.filter(n => /flash/.test(n) && !/lite/.test(n)), fl = l.filter(n => /flash/.test(n) && /lite/.test(n));
+  return [...yeni(f), ...yeni(fl), ...yeni(l.filter(n => !/flash/.test(n)))];
 }
-async function geminiSor(metn, tekrar, axtaris) {                          // axtaris: Google axtarışı aləti ilə (barkodu internetdə tapmaq üçün)
-  const acar = S.ayar.gkey, model = S.ayar.gmodel || 'gemini-2.5-flash';
-  const govde = {contents: [{parts: [{text: metn}]}], generationConfig: {temperature: 0.3}};
-  if (axtaris) govde.tools = [{google_search: {}}];
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': acar}, body: JSON.stringify(govde)});
-  const j = await r.json().catch(() => ({}));
-  if (r.status === 404 && !tekrar) {                                  // model adı köhnəlib - uyğununu tap
-    const y = enYaxsiModel(await geminiModeller(acar));
-    if (y && y !== model) { S.ayar.gmodel = y; saxla('ayar'); return geminiSor(metn, true, axtaris); }
+function enYaxsiModel(l) { return modelSirasi(l)[0] || ''; }
+// Limiti bitən model (pulsuz planda «limit: 0» — heç işləmir, və ya günlük/dəqiqəlik limit) Google-un dediyi vaxta qədər buraxılır
+function gBlok() { const b = S.ayar.gblok; return b && typeof b === 'object' && !Array.isArray(b) ? b : (S.ayar.gblok = {}); }
+function gBloklu(m) { return (gBlok()[m] || 0) > Date.now(); }
+function gGozle(j) {                                                      // Google-un «bu qədər sonra yenə yoxla» vaxtı (san)
+  const d = ((j.error && j.error.details) || []).find(x => x && x.retryDelay);
+  if (d) return parseFloat(d.retryDelay) || 60;
+  const m = String(j.error && j.error.message || '').match(/retry in (?:(\d+)h)?(?:(\d+)m)?([\d.]+)s/i);
+  return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 600;
+}
+function gSadeXeta(r, j, model) {
+  const e = (j && j.error) || {}, s = String(e.message || '');
+  if (r.status === 429 || e.status === 'RESOURCE_EXHAUSTED') {
+    const g = gGozle(j);
+    return 'Gemini-nin pulsuz limiti bu an bitib. ' +
+      (g > 3 * 3600 ? 'Sabah yenə işləyəcək.' : `Təxminən ${Math.max(1, Math.ceil(g / 60))} dəqiqə sonra yenə yoxlayın.`);
   }
-  if (!r.ok && axtaris && [400, 403, 429].includes(r.status)) { S.aiAxtarissiz = true; return geminiSor(metn, tekrar, false); }   // axtarış aləti bu açarda yoxdur - onsuz
-  if (!r.ok) throw new Error(j.error && j.error.message || ('xəta ' + r.status));
-  const c = j.candidates && j.candidates[0], t = c && c.content && (c.content.parts || []).map(p => p.text || '').join('').trim();
-  if (!t) throw new Error('Cavab boş gəldi.');
-  return t;
+  if (/API key not valid|API_KEY_INVALID/i.test(s)) return 'Açar səhvdir — aistudio.google.com-dan yenidən kopyalayın.';
+  if (r.status === 403) return 'Bu açarın Gemini-yə icazəsi yoxdur.';
+  return (s.split('\n')[0] || ('xəta ' + r.status)).slice(0, 200);
+}
+async function geminiSor(metn, _kohne, axtaris) {                        // axtaris: Google axtarışı aləti ilə (barkodu internetdə tapmaq üçün)
+  const acar = S.ayar.gkey;
+  let siyahi = null, son = null, sinanan = '';
+  const novbeti = async () => {
+    if (!siyahi) siyahi = modelSirasi(await geminiModeller(acar));
+    return siyahi.find(m => !gBloklu(m)) || '';
+  };
+  let model = S.ayar.gmodel && !gBloklu(S.ayar.gmodel) ? S.ayar.gmodel : await novbeti();
+  for (let n = 0; model && n < 7; n++) {
+    const govde = {contents: [{parts: [{text: metn}]}], generationConfig: {temperature: 0.3}};
+    if (axtaris) govde.tools = [{google_search: {}}];
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': acar}, body: JSON.stringify(govde)});
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) {
+      if (model !== S.ayar.gmodel) { S.ayar.gmodel = model; saxla('ayar'); }
+      const c = j.candidates && j.candidates[0], t = c && c.content && (c.content.parts || []).map(p => p.text || '').join('').trim();
+      if (!t) throw new Error('Cavab boş gəldi.');
+      return t;
+    }
+    son = {r, j}; sinanan = model;
+    const limit = r.status === 429 || (j.error && j.error.status === 'RESOURCE_EXHAUSTED');
+    if (axtaris && (limit || [400, 403].includes(r.status))) { axtaris = false; S.aiAxtarissiz = true; continue; }   // axtarış aləti yoxdur / limiti bitib - onsuz
+    if (limit || r.status === 404) {                                    // bu model olmur - növbətisi
+      gBlok()[model] = Date.now() + (r.status === 404 ? 24 * 3600 : Math.max(60, gGozle(j))) * 1000; saxla('ayar');
+      model = await novbeti(); continue;
+    }
+    break;
+  }
+  if (!son) throw new Error('Uyğun model tapılmadı.');
+  throw new Error(gSadeXeta(son.r, son.j, sinanan));
+}
+async function geminiYoxla() {                                            // «Modeli yoxla»: həqiqətən cavab verən modeli seç
+  if (S.ayar.gmodel && gBloklu(S.ayar.gmodel)) S.ayar.gmodel = '';
+  await geminiSor('Yalnız OK yaz.', false, false);
+  return S.ayar.gmodel;
 }
 async function aiGoster(m, b, yer) {
   if (!S.ayar.gkey) { yer.replaceChildren(el('div', {class: 'qeyd'}, 'AI izah üçün Gemini açarı lazımdır. ', el('button', {class: 'lnk', type: 'button', text: 'Ayarlarda daxil edin', onclick: () => { pdBagla(); gorunus('ayar'); }}))); return; }
@@ -1034,7 +1076,7 @@ function ayarCiz() {
     el('div', {class: 'kart'}, el('label', {class: 'sahe'}, 'API açarı (yalnız bu telefonda saxlanır)', gk), el('label', {class: 'sahe'}, 'Model', gm),
       el('div', {class: 'row'}, el('button', {class: 'b', type: 'button', text: 'Modeli yoxla', onclick: async () => {
         if (!a.gkey) return toast('Əvvəlcə açarı yazın'); gq.textContent = 'Yoxlanır…';
-        try { const l = await geminiModeller(a.gkey), y = enYaxsiModel(l); if (y) { a.gmodel = y; gm.value = y; saxla('ayar'); } gq.textContent = l.length ? 'Açar işləyir. Seçildi: ' + y : 'Uyğun model tapılmadı.'; }
+        try { const y = await geminiYoxla(); gm.value = y; gq.textContent = 'Açar işləyir. Seçildi: ' + y; }
         catch (e) { gq.textContent = 'Alınmadı: ' + (e.message || e); } }})), gq,
       el('div', {class: 'qeyd', text: 'Pulsuz açar: aistudio.google.com → «Get API key».'})),
     el('h3', {text: 'Skaner'}),
