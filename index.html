@@ -117,7 +117,7 @@ textarea { min-height: 70px; resize: vertical; }
 <datalist id="dlTey"></datalist><datalist id="dlKont"></datalist>
 <script>
 'use strict';
-const SURUM = '0.3.14 · 21.11.2026';
+const SURUM = '0.3.15 · 23.11.2026';
 const LIB = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.min.js';
 const FORMATLAR = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
 const NOV_AD = {MEDAXIL: 'Mədaxil', MEXARIC: 'Çıxış'};
@@ -1063,19 +1063,21 @@ function emForm(m, nov, barkod) {
   const kont = el('input', {placeholder: 'Kimdən gəlib (istəyə görə)', list: 'dlKont', autocomplete: 'off'});
   const sno = el('input', {placeholder: 'Qaimə № (istəyə görə)', autocomplete: 'off'});
   const qal = el('div', {class: 'qeyd'}), xeta = el('div', {class: 'xeta'}), ferq = el('div', {class: 'okm'});
-  const lMiq = el('label', {class: 'sahe'}), lTey = el('label', {class: 'sahe'}), rejim = el('div', {class: 'row filt'}), lTip = el('label', {class: 'sahe'}, 'Növ', tip);
+  // xanaların özü yerində qalır, yalnız yazıları dəyişir — yoxsa hər rəqəmdən sonra xana DOM-dan çıxıb-girir, klaviatura bağlanır (23.11 istifadəçi: «3 yazan kimi bağlanır»)
+  const tMiq = el('span'), tTey = el('span');
+  const lMiq = el('label', {class: 'sahe'}, tMiq, miq), lTey = el('label', {class: 'sahe'}, tTey, tey), rejim = el('div', {class: 'row filt'}), lTip = el('label', {class: 'sahe'}, 'Növ', tip);
   const movcud = a => ((m.q || {})[S.db.anbarlar.indexOf(a)] || 0) + (telFerq(m.k)[a] || 0);
   const silinecek = () => { const f = ededOxu(miq.value); return isFinite(f) && miq.value.trim() ? Math.round((movcud(anb.value) - f) * 1000) / 1000 : NaN; };
   const yenile = () => {
     const sil = cix && tip.value === 'Silinmə'; if (!sil) sayim = false;
     const sis = (m.q || {})[S.db.anbarlar.indexOf(anb.value)] || 0, tel = telFerq(m.k)[anb.value] || 0;
     qal.textContent = `Bu anbarda: ${say(movcud(anb.value))} ${m.v || ''}` + (tel ? ` (mərkəzdə ${say(sis)}, telefondakı sənədlər ${tel > 0 ? '+' : '−'}${say(Math.abs(tel))})` : '');
-    lMiq.replaceChildren(sayim ? 'Faktiki qalıq — saydığınız' + (m.v ? ' (' + m.v + ')' : '') : `Miqdar${m.v ? ' (' + m.v + ')' : ''}`, miq);
+    tMiq.textContent = sayim ? 'Faktiki qalıq — saydığınız' + (m.v ? ' (' + m.v + ')' : '') : `Miqdar${m.v ? ' (' + m.v + ')' : ''}`;
     rejim.hidden = !sil;
     rejim.replaceChildren(el('button', {class: 'b' + (sayim ? '' : ' sec'), type: 'button', text: 'Miqdarla', onclick: () => { sayim = false; yenile(); }}),
       el('button', {class: 'b' + (sayim ? ' sec' : ''), type: 'button', text: 'Sayımla', onclick: () => { sayim = true; yenile(); miq.focus(); }}));
     tey.placeholder = sil ? 'Səbəb / hara (məs: yararsız, 1-ci blok)' : cix ? 'Hara / kimə / nə üçün' : 'Qeyd (istəyə görə)';
-    lTey.replaceChildren(sil ? 'Səbəb / təyinat' : cix ? 'Təyinat' : 'Qeyd', tey);
+    tTey.textContent = sil ? 'Səbəb / təyinat' : cix ? 'Təyinat' : 'Qeyd';
     const x = silinecek();
     ferq.textContent = sayim && isFinite(x) ? (x > 1e-9 ? `Silinəcək: ${say(x)} ${m.v || ''}` : x < -1e-9 ? '' : 'Fərq yoxdur') : '';
     const d = qaralama(nov, anb.value, false, tip.value);
